@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import pytrends\")",
+      "Skill(update-config)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Skill(claude-api)",
+      "Bash(make install:*)",
+      "Bash(make dry:*)",
+      "Bash(make cron-setup:*)",
+      "Bash(source /Users/siromaje/Documents/affiliate-bot/.env)",
+      "Bash(curl -s \"https://graph.threads.net/v1.0/me?fields=id,username&access_token=$THREADS_ACCESS_TOKEN\")",
+      "Bash(make post:*)",
+      "Bash(pip3 install:*)",
+      "Bash(crontab -l)",
+      "Bash(cat:*)",
+      "Bash(crontab - crontab -l)",
+      "Bash(crontab -:*)",
+      "Bash(printf \"0 9  * * * make post >> logs/cron.log 2>&1\\\\n0 18 * * * cd /Users/siromaje/Documents/affiliate-bot && make post >> logs/cron.log 2>&1\\\\n0 21 * * * cd /Users/siromaje/Documents/affiliate-bot && make post >> logs/cron.log 2>&1\\\\n\")",
+      "Bash(/tmp/new_cron.txt:*)",
+      "Read(//private/tmp/**)",
+      "Bash(crontab /tmp/new_cron.txt)",
+      "Bash(/Users/siromaje/Documents/affiliate-bot/render.yaml:*)",
+      "Bash(kill 81779)",
+      "Bash(xargs kill:*)",
+      "Bash(pkill -f orchestrator.py)",
+      "Bash(kill 91043)",
+      "Bash(jq:*)",
+      "Bash(chmod:*)",
+      "Bash(brew list:*)",
+      "Bash(ngrok version:*)",
+      "Bash(brew install:*)",
+      "WebSearch",
+      "WebFetch(domain:metricool.com)",
+      "WebFetch(domain:circleboom.com)",
+      "WebFetch(domain:admarkeg.com)",
+      "WebFetch(domain:jusan-blog.com)"
+    ]
+  }
+}

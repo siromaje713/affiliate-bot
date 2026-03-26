@@ -1,0 +1,46 @@
+# Render デプロイ設定
+# 注意：.envの環境変数はRenderダッシュボードの「Environment」で設定すること
+# JST → UTC変換：9時=0時UTC / 18時=9時UTC / 21時=12時UTC
+
+services:
+  - type: cron
+    name: affiliate-bot-9am
+    runtime: python
+    schedule: "0 0 * * *"   # JST 9:00
+    buildCommand: pip install -r requirements.txt
+    startCommand: python orchestrator.py --mode post
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false   # Renderダッシュボードで設定
+      - key: THREADS_ACCESS_TOKEN
+        sync: false
+      - key: THREADS_USER_ID
+        sync: false
+
+  - type: cron
+    name: affiliate-bot-6pm
+    runtime: python
+    schedule: "0 9 * * *"   # JST 18:00
+    buildCommand: pip install -r requirements.txt
+    startCommand: python orchestrator.py --mode post
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: THREADS_ACCESS_TOKEN
+        sync: false
+      - key: THREADS_USER_ID
+        sync: false
+
+  - type: cron
+    name: affiliate-bot-9pm
+    runtime: python
+    schedule: "0 12 * * *"  # JST 21:00
+    buildCommand: pip install -r requirements.txt
+    startCommand: python orchestrator.py --mode post
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: THREADS_ACCESS_TOKEN
+        sync: false
+      - key: THREADS_USER_ID
+        sync: false

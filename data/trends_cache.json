@@ -1,0 +1,25 @@
+{
+  "cached_at": "2026-03-26T11:36:28.453028",
+  "trends": [
+    {
+      "keyword": "化粧水",
+      "trend_score": 65
+    },
+    {
+      "keyword": "美容液",
+      "trend_score": 61
+    },
+    {
+      "keyword": "日焼け止め",
+      "trend_score": 42
+    },
+    {
+      "keyword": "スキンケア",
+      "trend_score": 26
+    },
+    {
+      "keyword": "美顔器",
+      "trend_score": 17
+    }
+  ]
+}
