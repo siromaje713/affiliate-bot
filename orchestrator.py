@@ -12,7 +12,29 @@ from agents import insights_analyzer, web_scraper
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 from line_notify import notify as line_notify
 
-AFFILIATE_URL = "https://a.r10.to/h5yZS4"
+PRODUCT_AFFILIATE_URLS = {
+        "RF美顔器":      "https://a.r10.to/h5yZS4",
+        "美顔器":        "https://a.r10.to/h5yZS4",
+        "日焼け止め":    "https://a.r10.to/h5b4am",
+        "ダルバ":        "https://a.r10.to/h5b4am",
+        "ORBIS":         "https://a.r10.to/h8N8vu",
+        "オルビス":      "https://a.r10.to/h8N8vu",
+        "アクアフォース": "https://a.r10.to/h8N8vu",
+        "MISSHA":        "https://a.r10.to/hktN94",
+        "ミシャ":        "https://a.r10.to/hktN94",
+        "アンプル":      "https://a.r10.to/hktN94",
+        "肌ラボ":        "https://a.r10.to/h8N8Bv",
+        "ヒアルロン":    "https://a.r10.to/h8N8Bv",
+        "アネッサ":      "https://a.r10.to/hkWt3Y",
+        "ANESSA":        "https://a.r10.to/hkWt3Y",
+}
+AFFILIATE_URL = "https://a.r10.to/h5yZS4"  # フォールバック用
+
+def get_affiliate_url(product_name: str) -> str:
+        for keyword, url in PRODUCT_AFFILIATE_URLS.items():
+                    if keyword.lower() in product_name.lower():
+                                    return url
+                            return AFFILIATE_URL
 AGENT_TIMEOUT = 30  # 各エージェントの最大待機秒数
 COUNTER_PATH = Path("/tmp/post_counter.txt")
 
@@ -67,7 +89,7 @@ def run_pipeline(dry_run: bool = False):
 
     # 投稿タイプ決定（3回に1回だけlink型、残り2回はbuzz型）
     counter = read_counter()
-    post_type = "link" if counter % 3 == 0 else "buzz"
+            post_type = "buzz" if counter % 3 == 0 else "link"  # 3回中2回がlink型（収益優先）
     print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
 
     # 1. リサーチ（pytrends含むため60秒まで許容）
@@ -145,7 +167,7 @@ def run_pipeline(dry_run: bool = False):
 
     # 6. link型のみリプ欄にアフィリエイトリンクを別途投稿
     post_id = post_result.get("post_id")
-    reply_text = f"🛒 商品詳細はこちら👇\n{AFFILIATE_URL}"
+            reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(best_post.get('product_name', ''))}"
     if post_type == "buzz":
         if dry_run:
             print(f"[Orchestrator][DRY RUN] buzz型のためリプライはスキップ")
