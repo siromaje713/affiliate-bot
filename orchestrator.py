@@ -114,9 +114,23 @@ def run_pipeline(dry_run: bool = False):
     if win_cache.exists():
         try:
             win_patterns = json.loads(win_cache.read_text(encoding="utf-8")).get("win_patterns", [])
-            print("[Orchestrator] InsightsAnalyzer: キャッシュ使用")
+            print(f"[Orchestrator] InsightsAnalyzer: キャッシュ使用 ({len(win_patterns)}件)")
         except Exception:
             pass
+    if not win_patterns:
+        try:
+            print("[Orchestrator] InsightsAnalyzer: リアルタイム取得中...")
+            live = insights_analyzer.run()
+            win_patterns = live if live else []
+            if win_patterns:
+                win_cache.parent.mkdir(parents=True, exist_ok=True)
+                win_cache.write_text(
+                    __import__("json").dumps({"win_patterns": win_patterns}, ensure_ascii=False, indent=2),
+                    encoding="utf-8"
+                )
+                print(f"[Orchestrator] InsightsAnalyzer: {len(win_patterns)}件取得・キャッシュ保存")
+        except Exception as e:
+            print(f"[Orchestrator] InsightsAnalyzer: 取得失敗→スキップ ({e})")
 
     comp_cache = Path("agents/cache/competitor_buzz.json")
     competitor_posts = []
