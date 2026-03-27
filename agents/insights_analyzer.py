@@ -86,4 +86,12 @@ def run() -> list:
     print(f"[InsightsAnalyzer] 勝ちパターン {len(win_patterns)}件を抽出")
     for p in win_patterns:
         print(f"  ❤️ {p['like_count']} 「{p['text'][:40]}...」")
+
+    # 勝ちパターンをwriter.pyが読めるJSONに書き出す
+    import json as _json
+    _wp_path = Path(__file__).parent / "cache" / "winning_patterns.json"
+    _wp_path.parent.mkdir(exist_ok=True)
+    with open(_wp_path, "w", encoding="utf-8") as f:
+        _json.dump(win_patterns[:5], f, ensure_ascii=False, indent=2)
+    print(f"[InsightsAnalyzer] winning_patterns.json に {min(len(win_patterns),5)}件書き出し完了")
     return win_patterns
