@@ -13,7 +13,6 @@
 10. 参加誘導系: 教えて/みんなは?/どっちが好き?
 """
 import json
-import random
 from datetime import datetime
 from pathlib import Path
 from utils.claude_cli import ask_json
@@ -292,18 +291,12 @@ def save_to_history(text: str):
     )
 
 
-def get_pattern_examples(n=6) -> str:
-    """毎回ランダムに異なるパターンカテゴリを選んでプロンプトに注入"""
-    categories = list(BUZZ_PATTERNS.keys())
-    selected = random.sample(categories, min(n, len(categories)))
+def get_pattern_examples() -> str:
+    """全20種バズパターンをClaudeに全部渡す。Claudeが商品・季節・文脈に応じて自律的に最適パターンを選択・組み合わせる"""
     lines = []
-    for cat in selected:
-        p = BUZZ_PATTERNS[cat]
-        lines.append(f"【{cat}】（心理：{p['desc']}）")
-        lines.append(f"  例：{p['example']}")
+    for cat, p in BUZZ_PATTERNS.items():
+        lines.append(f"【{cat}】{p['desc']} / 例：{p['example']}")
     return "\n".join(lines)
-
-
 def generate_patterns(
     product: dict,
     hook=None,
@@ -340,7 +333,7 @@ def generate_patterns(
     hook_angle = product.get("hook_angle", "")
 
     # 毎回ランダムに6種のバズパターンを選択（マンネリ防止）
-    pattern_examples = get_pattern_examples(6)
+    pattern_examples = get_pattern_examples()
 
     seasonal_info = f"""
 【今の季節・時事コンテキスト】
