@@ -292,7 +292,23 @@ def save_to_history(text: str):
 
 
 def get_pattern_examples() -> str:
-    """パターン辞書・種類数に一切依存しない。Claudeの全知識でバズ構造を自律生成"""
+    """パターン辞書・種類数に一切依存しない。Claudeの全知識でバズ構造を自律生成。
+    winning_patterns.jsonがあれば実績バズデータもプロンプトに注入する"""
+    import json as _json
+    from pathlib import Path as _Path
+    _wp_path = _Path(__file__).parent / "cache" / "winning_patterns.json"
+    winning_section = ""
+    if _wp_path.exists():
+        try:
+            with open(_wp_path, encoding="utf-8") as f:
+                wps = _json.load(f)
+            if wps:
+                winning_section = "\n\n【実際にThreadsでバズった投稿（いいね数順・最重要参考）】\n"
+                for i, p in enumerate(wps[:5], 1):
+                    winning_section += f"{i}. ❤️{p.get('like_count',0)} 「{p.get('text','')[:60]}」\n"
+                winning_section += "\u2191これらのパターン・フック・言葉選びを最優先で参考にしてください。\n"
+        except Exception:
+            pass
     return (
         "あなたはSNSバイラル構造の専門家です。\n"
         "以下はあくまで参考トリガーの一部。これに限定せず、\n"
