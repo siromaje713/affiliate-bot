@@ -15,13 +15,8 @@ def notify(status: str, message: str) -> bool:
         print("[SlackNotify] SLACK_WEBHOOK_URL未設定 → スキップ", file=sys.stderr)
         return False
 
-    if status == "success":
-        text = f"✅ 投稿完了\n📝 {message}"
-    else:
-        text = f"❌ 投稿失敗\n⚠️ {message}"
-
     try:
-        resp = requests.post(webhook_url, json={"text": text}, timeout=5)
+        resp = requests.post(webhook_url, json={"text": message}, timeout=5)
         resp.raise_for_status()
         print(f"[SlackNotify] 送信完了: {status}")
         return True

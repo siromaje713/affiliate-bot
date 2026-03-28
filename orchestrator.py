@@ -377,7 +377,9 @@ def run_pipeline(dry_run: bool = False):
         print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
         if slack_notify:
             _hook = best_post["text"].split("\n")[0][:40]
-            slack_notify("success", f"🧵 スレッド投稿完了\n商品: {_pname}\nフック: {_hook}\nURL: {_aff_url}")
+            slack_notify("success",
+                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n{_aff_url}"
+            )
         print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
         return
 
@@ -396,15 +398,9 @@ def run_pipeline(dry_run: bool = False):
         reply_result = reply_poster.run(post_id, dry_run=False, affiliate_url=_aff_url)
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
         if slack_notify:
-            _hook = best_post["text"].split("\n")[0][:50]
-            _score = best_post.get("score", "?")
+            _hook = best_post["text"].split("\n")[0][:40]
             slack_notify("success",
-                f"✅ 投稿完了\n"
-                f"商品: {_pname}\n"
-                f"フック: {_hook}\n"
-                f"スコア: {_score}\n"
-                f"アフィURL: {_aff_url}\n"
-                f"投稿ID: {post_id}"
+                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n{_aff_url}"
             )
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
@@ -457,5 +453,5 @@ if __name__ == "__main__":
         import traceback
         print(f"❌ [Orchestrator] エラー発生\n{type(e).__name__}: {str(e)[:200]}")
         if slack_notify:
-            slack_notify("error", f"{type(e).__name__}: {str(e)[:200]}")
+            slack_notify("error", f"🚨 エラー\n{type(e).__name__}: {str(e)[:200]}")
         raise
