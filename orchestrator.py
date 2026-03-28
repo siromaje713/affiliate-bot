@@ -3,11 +3,12 @@ import json
 import re
 import sys
 import time
+import random
 import argparse
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from agents import researcher, writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
-from agents import insights_analyzer, web_scraper
+from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 
 PRODUCT_AFFILIATE_URLS = {
@@ -159,6 +160,17 @@ def run_pipeline(dry_run: bool = False):
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
 
+    if not dry_run and random.random() < 0.3:
+        print("[Orchestrator] スレッド投稿モード（30%抽選）")
+        thread_result = thread_poster.post_thread(
+            product_name=best_post.get("product_name", "美容商品"),
+            hook=best_post["text"].split("\n")[0][:40],
+        )
+        write_counter(counter + 1)
+        print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
+        print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
+        return
+
     post_result = poster.run(best_post, dry_run=dry_run)
     write_counter(counter + 1)
 
@@ -188,7 +200,7 @@ def run_analytics():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="affiliate-bot オーケストレーター")
-    parser.add_argument("--mode", choices=["post", "analytics"], default="post")
+    parser.add_argument("--mode", choices=["post", "analytics", "reply"], default="post")
     parser.add_argument("--dry-run", action="store_true", help="実際には投稿しない")
     args = parser.parse_args()
     try:
@@ -196,6 +208,8 @@ if __name__ == "__main__":
             run_pipeline(dry_run=args.dry_run)
         elif args.mode == "analytics":
             run_analytics()
+        elif args.mode == "reply":
+            conversation_agent.run_conversation()
     except Exception as e:
         import traceback
         print(f"❌ [Orchestrator] エラー発生\n{type(e).__name__}: {str(e)[:200]}")
