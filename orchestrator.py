@@ -16,58 +16,201 @@ try:
 except ImportError:
     line_notify = None
 
-# アフィリエイトURL（楽天 + Amazon プレースホルダー）
+# アフィリエイトURL辞書（楽天 + Amazon、post_countで交互切り替え）
 # Amazonリンク形式: https://www.amazon.co.jp/dp/[ASIN]?tag=rikocosmelab-22
 PRODUCT_AFFILIATE_URLS = {
-    # 楽天
-    "RF美顔器": "https://a.r10.to/h5yZS4",
-    "美顔器": "https://a.r10.to/h5yZS4",
-    "日焼け止め": "https://a.r10.to/h5b4am",
-    "ダルバ": "https://a.r10.to/h5b4am",
-    "ORBIS": "https://a.r10.to/h8N8vu",
-    "オルビス": "https://a.r10.to/h8N8vu",
-    "アクアフォース": "https://a.r10.to/h8N8vu",
-    "MISSHA": "https://a.r10.to/hktN94",
-    "ミシャ": "https://a.r10.to/hktN94",
-    "アンプル": "https://a.r10.to/hktN94",
-    "肌ラボ": "https://a.r10.to/h8N8Bv",
-    "ヒアルロン": "https://a.r10.to/h8N8Bv",
-    "アネッサ": "https://a.r10.to/hkWt3Y",
-    "ANESSA": "https://a.r10.to/hkWt3Y",
-    # Amazon（ASINが決まったら .env に AMAZON_xxx_URL=https://www.amazon.co.jp/dp/ASIN?tag=rikocosmelab-22 を設定）
-    "RF美顔器_amazon": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
-    "美顔器_amazon": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
-    "日焼け止め_amazon": os.environ.get("AMAZON_SUNSCREEN_URL", ""),
-    "ダルバ_amazon": os.environ.get("AMAZON_DALBA_URL", ""),
-    "ORBIS_amazon": os.environ.get("AMAZON_ORBIS_URL", ""),
-    "オルビス_amazon": os.environ.get("AMAZON_ORBIS_URL", ""),
-    "MISSHA_amazon": os.environ.get("AMAZON_MISSHA_URL", ""),
-    "ミシャ_amazon": os.environ.get("AMAZON_MISSHA_URL", ""),
-    "肌ラボ_amazon": os.environ.get("AMAZON_HADALABO_URL", ""),
-    "ヒアルロン_amazon": os.environ.get("AMAZON_HADALABO_URL", ""),
-    "アネッサ_amazon": os.environ.get("AMAZON_ANESSA_URL", ""),
-    "ANESSA_amazon": os.environ.get("AMAZON_ANESSA_URL", ""),
+    # ── スキンケア ──────────────────────────────────
+    "アテニア": {
+        "name": "アテニア スキンクリア クレンズ オイル",
+        "amazon": "https://www.amazon.co.jp/dp/B0CJXS8CB2?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "肌ラボ": {
+        "name": "肌ラボ 極潤ヒアルロン液",
+        "amazon": "https://www.amazon.co.jp/dp/B001GPIQKE?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/h8N8Bv",
+    },
+    "ヒアルロン": {
+        "name": "肌ラボ 極潤ヒアルロン液",
+        "amazon": "https://www.amazon.co.jp/dp/B001GPIQKE?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/h8N8Bv",
+    },
+    "ルルルン": {
+        "name": "ルルルン フェイスマスク 32枚",
+        "amazon": "https://www.amazon.co.jp/dp/B09JW6Q9XC?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "VT CICA": {
+        "name": "VT CICA デイリースージングマスク",
+        "amazon": "https://www.amazon.co.jp/dp/B083X5R6VR?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "CICA": {
+        "name": "VT CICA デイリースージングマスク",
+        "amazon": "https://www.amazon.co.jp/dp/B083X5R6VR?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "雪肌精": {
+        "name": "雪肌精 化粧水",
+        "amazon": "https://www.amazon.co.jp/dp/B003EPYUJE?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "キュレル": {
+        "name": "キュレル 潤浸保湿 化粧水",
+        "amazon": "https://www.amazon.co.jp/dp/B003DFOAP8?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "セタフィル": {
+        "name": "セタフィル モイスチャライジングローション",
+        "amazon": "https://www.amazon.co.jp/dp/B0009ET2UI?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ニベア": {
+        "name": "ニベア クリーム",
+        "amazon": "https://www.amazon.co.jp/dp/B003ZRGDPG?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    # ── 日焼け止め・UVケア ──────────────────────────
+    "アネッサ": {
+        "name": "アネッサ パーフェクトUV スキンケアミルク",
+        "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/hkWt3Y",
+    },
+    "ANESSA": {
+        "name": "アネッサ パーフェクトUV スキンケアミルク",
+        "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/hkWt3Y",
+    },
+    "スキンアクア": {
+        "name": "スキンアクア トーンアップUV",
+        "amazon": "https://www.amazon.co.jp/dp/B07BPLJFLK?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ビオレ": {
+        "name": "ビオレ UV アクア リッチ ウォータリーエッセンス",
+        "amazon": "https://www.amazon.co.jp/dp/B00PQNUIWY?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "日焼け止め": {
+        "name": "日焼け止め全般",
+        "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/h5b4am",
+    },
+    "ダルバ": {
+        "name": "ダルバ 日焼け止め",
+        "amazon": "",
+        "rakuten": "https://a.r10.to/h5b4am",
+    },
+    # ── 美顔器・美容機器 ────────────────────────────
+    "リファ": {
+        "name": "リファ ハートコーム Aira",
+        "amazon": "https://www.amazon.co.jp/dp/B0DBH7FHBW?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ヤーマン": {
+        "name": "ヤーマン フォトプラスEX",
+        "amazon": "https://www.amazon.co.jp/dp/B08KGVHTS3?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "パナソニック": {
+        "name": "パナソニック 美顔器 イオンエフェクター",
+        "amazon": "https://www.amazon.co.jp/dp/B09TVHF7LY?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "イオンエフェクター": {
+        "name": "パナソニック 美顔器 イオンエフェクター",
+        "amazon": "https://www.amazon.co.jp/dp/B09TVHF7LY?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "RF美顔器": {
+        "name": "RF美顔器",
+        "amazon": "",
+        "rakuten": "https://a.r10.to/h5yZS4",
+    },
+    "美顔器": {
+        "name": "美顔器全般",
+        "amazon": "",
+        "rakuten": "https://a.r10.to/h5yZS4",
+    },
+    # ── ヘアケア ────────────────────────────────────
+    "ORBIS": {
+        "name": "ORBIS エッセンスイン ヘアミルク",
+        "amazon": "https://www.amazon.co.jp/dp/B06X17VVNQ?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/h8N8vu",
+    },
+    "オルビス": {
+        "name": "ORBIS エッセンスイン ヘアミルク",
+        "amazon": "https://www.amazon.co.jp/dp/B06X17VVNQ?tag=rikocosmelab-22",
+        "rakuten": "https://a.r10.to/h8N8vu",
+    },
+    "THE ANSWER": {
+        "name": "THE ANSWER スーパーラメラシャンプー",
+        "amazon": "https://www.amazon.co.jp/dp/B0DT4WN5D9?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ラメラシャンプー": {
+        "name": "THE ANSWER スーパーラメラシャンプー",
+        "amazon": "https://www.amazon.co.jp/dp/B0DT4WN5D9?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "シュワルツコフ": {
+        "name": "シュワルツコフ グロッシーシャイン",
+        "amazon": "https://www.amazon.co.jp/dp/B07MQ6FWZL?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    # ── メイク ──────────────────────────────────────
+    "キャンメイク": {
+        "name": "キャンメイク ジェルクリーミータッチライナー",
+        "amazon": "https://www.amazon.co.jp/dp/B07B456KKP?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "セザンヌ": {
+        "name": "セザンヌ パールグロウハイライト",
+        "amazon": "https://www.amazon.co.jp/dp/B082YF3RGM?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "CEZANNE": {
+        "name": "CEZANNE ウォータリーティントリップ",
+        "amazon": "https://www.amazon.co.jp/dp/B092KCNLPB?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    # ── その他（既存） ───────────────────────────────
+    "MISSHA": {
+        "name": "MISSHA アンプル",
+        "amazon": "",
+        "rakuten": "https://a.r10.to/hktN94",
+    },
+    "ミシャ": {
+        "name": "ミシャ アンプル",
+        "amazon": "",
+        "rakuten": "https://a.r10.to/hktN94",
+    },
+    "アンプル": {
+        "name": "ミシャ アンプル",
+        "amazon": "",
+        "rakuten": "https://a.r10.to/hktN94",
+    },
 }
-AFFILIATE_URL = "https://a.r10.to/h5yZS4"
+
+_DEFAULT_URL = "https://a.r10.to/hkWt3Y"  # フォールバック（アネッサ楽天）
 
 
-def get_affiliate_url(product_name: str) -> str:
-    for keyword, url in PRODUCT_AFFILIATE_URLS.items():
-        if "_amazon" in keyword:
-            continue
+def get_affiliate_url(product_name: str, post_count: int = 0) -> str:
+    """商品名でキーワードマッチ。post_countで楽天/Amazonを交互に返す。"""
+    matched = None
+    for keyword, info in PRODUCT_AFFILIATE_URLS.items():
         if keyword.lower() in product_name.lower():
-            return url
-    return AFFILIATE_URL
+            matched = info
+            break
 
+    if matched is None:
+        return _DEFAULT_URL
 
-def get_amazon_affiliate_url(product_name: str) -> str:
-    for keyword, url in PRODUCT_AFFILIATE_URLS.items():
-        if not keyword.endswith("_amazon"):
-            continue
-        base_keyword = keyword.replace("_amazon", "")
-        if base_keyword.lower() in product_name.lower() and url:
-            return url
-    return ""
+    # post_countが奇数→Amazon優先、偶数→楽天優先（未設定なら逆を使う）
+    if post_count % 2 == 1:
+        return matched.get("amazon") or matched.get("rakuten") or _DEFAULT_URL
+    else:
+        return matched.get("rakuten") or matched.get("amazon") or _DEFAULT_URL
 
 AGENT_TIMEOUT = 30
 COUNTER_PATH = Path("/tmp/post_counter.txt")
@@ -209,7 +352,7 @@ def run_pipeline(dry_run: bool = False):
     write_counter(counter + 1)
 
     post_id = post_result.get("post_id")
-    reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(best_post.get('product_name', ''))}"
+    reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(best_post.get('product_name', ''), post_count=counter)}"
 
     if post_type == "buzz":
         if dry_run:
