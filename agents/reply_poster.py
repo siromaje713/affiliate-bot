@@ -112,7 +112,7 @@ def run(post_id: str, dry_run: bool = False, product_name: str = "") -> dict:
 
     affiliate_url = _get_affiliate_url(count, product_name)
     platform = "Amazon" if "amazon" in affiliate_url.lower() or "amzn" in affiliate_url.lower() else "楽天"
-    reply_text = f"🛒 商品詳細はこちら👇\n{affiliate_url}"
+    reply_text = f"🛒 商品詳細はこちら👇\n{affiliate_url}\n#PR"
     print(f"[ReplyPoster] アフィリエイト: {platform}（カウンター{count}）")
 
     if dry_run:

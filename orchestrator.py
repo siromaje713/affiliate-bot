@@ -322,9 +322,14 @@ def run_pipeline(dry_run: bool = False):
             pass
 
     best_post = None
-    product = random.choice(products)
-    print(f"\n[Orchestrator] 選択商品: 「{product['product_name']}」（{len(products)}件からランダム選択）")
-    # 使用商品を記録（次回の重複防止）
+    # 直近使用済み商品を除外してランダム選択（プログラム的フィルタ）
+    last_used = researcher.load_last_used()
+    filtered = [p for p in products if p["product_name"] not in last_used]
+    if not filtered:
+        filtered = products  # 全部使済みならリセット扱い
+        print(f"[Orchestrator] 全商品が使用済みのためリセット")
+    product = random.choice(filtered)
+    print(f"\n[Orchestrator] 選択商品: 「{product['product_name']}」（{len(filtered)}/{len(products)}件から選択）")
     researcher.record_used(product["product_name"])
 
     hook_result = run_with_timeout(
