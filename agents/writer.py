@@ -10,22 +10,47 @@ BUZZ_PATTERNS_PATH = Path(__file__).parent.parent / "data" / "buzz_patterns.json
 MAX_HISTORY = 100
 SIMILARITY_THRESHOLD = 0.6
 
+# フォールバック用パターン（buzz_patterns.jsonが空/取得失敗時に使用）
+_FALLBACK_PATTERNS = [
+    {"name": "悲報系", "hook_structure": "悲報、〇〇してた私が△△だった", "ending_pattern": "…って知らなかった", "example": "悲報、美白頑張ってた私、実は紫外線対策が全然足りてなかった"},
+    {"name": "朗報系", "hook_structure": "朗報、〇〇で悩んでた私が△△した話", "ending_pattern": "もっと早く知りたかった", "example": "朗報、毛穴の開きで悩んでた私が3日で変わった話"},
+    {"name": "衝撃暴露系", "hook_structure": "皮膚科で言われた衝撃の一言、〇〇は嘘だった", "ending_pattern": "って本当だった", "example": "皮膚科で言われた衝撃の一言、保湿は量より順番が全てって"},
+    {"name": "ビフォーアフター系", "hook_structure": "〇〇を始めて△△、□□が起きた話", "ending_pattern": "気のせいじゃなかった", "example": "美顔器を始めて3ヶ月、輪郭が変わった気がするのは気のせいじゃなかった"},
+    {"name": "あるある系", "hook_structure": "〇〇で悩んでる人って私だけじゃないよね？", "ending_pattern": "正直に手あげて", "example": "27歳で毛穴が気になり始めた人、正直に手あげて"},
+    {"name": "知ってた系", "hook_structure": "〇〇って知ってた？私は△△前まで全然知らなかった", "ending_pattern": "知らなかった", "example": "日焼け止めって塗る量が足りてない人が9割らしい、私もそうだった"},
+    {"name": "コスト比較系", "hook_structure": "エステ代〇〇が△△分に変わった話", "ending_pattern": "これが正解だった", "example": "エステ代1回1万円が美顔器1台で3年分に変わった話"},
+    {"name": "今すぐやれ系", "hook_structure": "〇〇前にこれをやってない人、まじで後悔する", "ending_pattern": "まじで後悔する", "example": "4月中に日焼け止め変えてない人、まじで5月後悔する"},
+]
+
 
 def _load_buzz_patterns() -> list:
-    """data/buzz_patterns.jsonから動的パターンをロードする"""
+    """data/buzz_patterns.jsonから動的パターンをロードする。
+    patternsがdict型（旧形式）の場合はlist形式に変換する。"""
     if BUZZ_PATTERNS_PATH.exists():
         try:
             data = json.loads(BUZZ_PATTERNS_PATH.read_text(encoding="utf-8"))
             patterns = data.get("patterns", [])
-            if patterns:
-                return patterns
+            if not patterns:
+                return []
+            # dict型（旧形式: {pattern_name: [example, ...]}）をlist形式に変換
+            if isinstance(patterns, dict):
+                patterns = [
+                    {
+                        "name": k,
+                        "hook_structure": v[0] if v else "",
+                        "ending_pattern": "",
+                        "example": v[0] if v else "",
+                    }
+                    for k, v in patterns.items()
+                ]
+            return patterns
         except Exception:
             pass
     return []
 
 
 def _get_or_generate_patterns() -> list:
-    """パターンをロード、なければbuzz_researcherで生成する"""
+    """パターンをロード、なければbuzz_researcherで生成、それも失敗ならフォールバックを返す"""
     patterns = _load_buzz_patterns()
     if patterns:
         return patterns
@@ -33,10 +58,13 @@ def _get_or_generate_patterns() -> list:
         from agents import buzz_researcher
         print("[Writer] buzz_patterns.jsonが空のため動的生成します...")
         context = buzz_researcher.get_buzz_context()
-        return context.get("patterns", [])
+        patterns = context.get("patterns", [])
+        if patterns:
+            return patterns
     except Exception as e:
         print(f"[Writer] パターン動的生成失敗: {e}")
-        return []
+    print("[Writer] フォールバックパターンを使用します")
+    return _FALLBACK_PATTERNS
 
 
 def get_season_context():
