@@ -1,25 +1,25 @@
 {
-  "cached_at": "2026-03-26T11:36:28.453028",
+  "cached_at": "2026-03-28T20:18:05.761314",
   "trends": [
     {
-      "keyword": "化粧水",
-      "trend_score": 65
-    },
-    {
-      "keyword": "美容液",
+      "keyword": "日焼け止め",
       "trend_score": 61
     },
     {
-      "keyword": "日焼け止め",
-      "trend_score": 42
+      "keyword": "美白",
+      "trend_score": 14
     },
     {
-      "keyword": "スキンケア",
-      "trend_score": 26
+      "keyword": "毛穴ケア",
+      "trend_score": 2
     },
     {
-      "keyword": "美顔器",
-      "trend_score": 17
+      "keyword": "UV対策開始",
+      "trend_score": 0
+    },
+    {
+      "keyword": "春肌ケア",
+      "trend_score": 0
     }
   ]
 }

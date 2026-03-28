@@ -11,6 +11,10 @@ from pathlib import Path
 from agents import researcher, writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
 from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+try:
+    from line_notify import notify as line_notify
+except ImportError:
+    line_notify = None
 
 # 楽天アフィリエイトURL（既存）
 PRODUCT_AFFILIATE_URLS = {

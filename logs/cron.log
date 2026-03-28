@@ -1,3 +1,4 @@
 make: getcwd: Operation not permitted
 make: *** No rule to make target `post'.  Stop.
 bash: /Users/siromaje/Documents/affiliate-bot/scripts/post_with_jitter.sh: Operation not permitted
+bash: /Users/siromaje/Documents/affiliate-bot/scripts/post_with_jitter.sh: Operation not permitted
