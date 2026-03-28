@@ -262,6 +262,12 @@ def run_pipeline(dry_run: bool = False):
     post_type = "buzz" if counter % 3 == 0 else "link"
     print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
 
+    # trends_cacheを強制削除して毎回フレッシュな商品を生成させる
+    trends_cache = Path("data/trends_cache.json")
+    if trends_cache.exists():
+        trends_cache.unlink()
+        print("[Orchestrator] trends_cache.json を削除（強制リフレッシュ）")
+
     products = run_with_timeout("Researcher", researcher.run, timeout=60, fallback=[])
     if not products:
         print("[Orchestrator] 商品アイデアが取得できませんでした")
@@ -318,6 +324,9 @@ def run_pipeline(dry_run: bool = False):
     best_post = None
     product = random.choice(products)
     print(f"\n[Orchestrator] 選択商品: 「{product['product_name']}」（{len(products)}件からランダム選択）")
+    # 使用商品を記録（次回の重複防止）
+    researcher.record_used(product["product_name"])
+
     hook_result = run_with_timeout(
         f"HookOptimizer({product['product_name']})",
         hook_optimizer.run,
@@ -362,15 +371,11 @@ def run_pipeline(dry_run: bool = False):
     _pname = best_post.get("product", {}).get("product_name", "")
     reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(_pname, post_count=counter)}"
 
-    if post_type == "buzz":
-        if dry_run:
-            print("[Orchestrator][DRY RUN] buzz型のためリプライはスキップ")
-        else:
-            print("[Orchestrator] buzz型のためリプライはスキップ")
-    elif dry_run:
+    # buzz型・link型どちらも毎回アフィリエイトリプライを付ける
+    if dry_run:
         print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     else:
-        reply_result = reply_poster.run(post_id, dry_run=False, product_name=best_post.get("product", {}).get("product_name", ""))
+        reply_result = reply_poster.run(post_id, dry_run=False, product_name=_pname)
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")

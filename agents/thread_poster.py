@@ -1,4 +1,4 @@
-"""スレッド投稿エージェント：1投稿を3連リプライチェーンで展開、末尾にアフィリエイトリプ"""
+"""スレッド投稿エージェント：1投稿を2連リプライチェーンで展開（2/2にアフィリエイトURL直接埋め込み）"""
 import os
 import time
 import requests
@@ -41,64 +41,58 @@ def _publish(container_id: str) -> str:
 
 
 def _generate_thread_texts(product_name: str, hook: str, season_context: str) -> list:
-    """Claudeで3投稿分のテキストを生成する（各100文字以内）"""
+    """Claudeで2投稿分のテキストを生成する（各100文字以内・URLなし）"""
     season_note = f"季節感: {season_context}\n" if season_context else ""
-    prompt = f"""美容アカウント「りこ」として、{product_name}について3連投稿のスレッドを作成してください。
+    prompt = f"""美容アカウント「りこ」として、{product_name}について2連投稿のスレッドを作成してください。
 
 {season_note}1投稿目のフック: {hook}
 
-構成:
-- 1/3: 強いフック（数字・体験・before/after）＋続きを読ませる引き
-- 2/3: 具体的な体験談 ＋「{product_name}使い始めて〜」のように商品名を自然に入れる
-- 3/3: 結果・まとめ ＋「詳細はリプ欄👇」でCTA
+【実績ベンチマークから学んだバズ構成】
+- 1/2: 悩み直撃フック（商品名より先に悩みを言う）＋「{product_name}」を自然に1回だけ言及＋「続きで詳しく→」でCTA
+  例: 「カラコン一日中つけられない人なんだけど、{product_name}のおかげで変わった。続きで詳しく→」
+- 2/2: 具体的な体験談＋数字や変化で結果を示す＋「みんなは試した？」等の質問で締める
+  例: 「使い始めて3日で目元のうるおいが全然違う。乾燥が気になる季節に本当に助かってる。みんなは？😊」
 
 ルール:
 - 各投稿は100文字以内（厳守）
 - 絵文字は各2個以内
-- URLは含めない
+- URLは含めない（URLは後で別途追加する）
 - NGワード: 最安値、絶対、必ず
+- 2/2は質問で締めること（「みんなは？」「試した人いる？」「どう思う？」等）
 
 JSON形式で返してください:
-{{"posts": ["投稿1テキスト", "投稿2テキスト", "投稿3テキスト"]}}"""
+{{"posts": ["投稿1テキスト", "投稿2テキスト"]}}"""
 
     result = ask_json(prompt)
     posts = result.get("posts", [])
-    if len(posts) != 3:
-        raise ValueError(f"3投稿生成できませんでした（{len(posts)}件）")
+    if len(posts) != 2:
+        raise ValueError(f"2投稿生成できませんでした（{len(posts)}件）")
     return posts
 
 
 def post_thread(product_name: str, hook: str, season_context: str = "", affiliate_url: str = "") -> dict:
-    """3連リプライチェーンで投稿し、末尾にアフィリエイトURLをリプライする"""
+    """2連リプライチェーンで投稿（2/2の末尾にアフィリエイトURLを直接埋め込む）"""
     print(f"[ThreadPoster] スレッド生成中: {product_name}")
     texts = _generate_thread_texts(product_name, hook, season_context)
+
+    # 2/2の末尾にURLを直接埋め込む
+    if affiliate_url:
+        texts[1] = texts[1].rstrip() + f"\n{affiliate_url}\n#PR"
+        print(f"[ThreadPoster] アフィリエイトURL埋め込み済み（2/2）")
 
     post_ids = []
     prev_id = None
 
     for i, text in enumerate(texts, 1):
-        print(f"[ThreadPoster] {i}/3 投稿中: {text[:30]}...")
+        print(f"[ThreadPoster] {i}/2 投稿中: {text[:30]}...")
         container_id = _create_container(text, reply_to_id=prev_id)
         time.sleep(3)
         post_id = _publish(container_id)
         post_ids.append(post_id)
         prev_id = post_id
-        print(f"[ThreadPoster] {i}/3 完了: post_id={post_id}")
-        if i < 3:
+        print(f"[ThreadPoster] {i}/2 完了: post_id={post_id}")
+        if i < 2:
             time.sleep(2)
-
-    # 1/3 の投稿にアフィリエイトURLをリプとして追加
-    if affiliate_url and post_ids:
-        affiliate_text = f"🛒 商品詳細はこちら👇\n{affiliate_url}"
-        print(f"[ThreadPoster] アフィリエイトリプライ投稿中...")
-        try:
-            container_id = _create_container(affiliate_text, reply_to_id=post_ids[0])
-            time.sleep(3)
-            aff_id = _publish(container_id)
-            post_ids.append(aff_id)
-            print(f"[ThreadPoster] アフィリエイトリプライ完了: {aff_id}")
-        except Exception as e:
-            print(f"[ThreadPoster] アフィリエイトリプライ失敗（スキップ）: {e}")
 
     print(f"[ThreadPoster] スレッド投稿完了: {len(post_ids)}件")
     return {"post_ids": post_ids, "product_name": product_name}
