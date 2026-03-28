@@ -16,8 +16,10 @@ try:
 except ImportError:
     line_notify = None
 
-# 楽天アフィリエイトURL（既存）
+# アフィリエイトURL（楽天 + Amazon プレースホルダー）
+# Amazonリンク形式: https://www.amazon.co.jp/dp/[ASIN]?tag=rikocosmelab-22
 PRODUCT_AFFILIATE_URLS = {
+    # 楽天
     "RF美顔器": "https://a.r10.to/h5yZS4",
     "美顔器": "https://a.r10.to/h5yZS4",
     "日焼け止め": "https://a.r10.to/h5b4am",
@@ -32,30 +34,40 @@ PRODUCT_AFFILIATE_URLS = {
     "ヒアルロン": "https://a.r10.to/h8N8Bv",
     "アネッサ": "https://a.r10.to/hkWt3Y",
     "ANESSA": "https://a.r10.to/hkWt3Y",
+    # Amazon（ASINが決まったら .env に AMAZON_xxx_URL=https://www.amazon.co.jp/dp/ASIN?tag=rikocosmelab-22 を設定）
+    "RF美顔器_amazon": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
+    "美顔器_amazon": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
+    "日焼け止め_amazon": os.environ.get("AMAZON_SUNSCREEN_URL", ""),
+    "ダルバ_amazon": os.environ.get("AMAZON_DALBA_URL", ""),
+    "ORBIS_amazon": os.environ.get("AMAZON_ORBIS_URL", ""),
+    "オルビス_amazon": os.environ.get("AMAZON_ORBIS_URL", ""),
+    "MISSHA_amazon": os.environ.get("AMAZON_MISSHA_URL", ""),
+    "ミシャ_amazon": os.environ.get("AMAZON_MISSHA_URL", ""),
+    "肌ラボ_amazon": os.environ.get("AMAZON_HADALABO_URL", ""),
+    "ヒアルロン_amazon": os.environ.get("AMAZON_HADALABO_URL", ""),
+    "アネッサ_amazon": os.environ.get("AMAZON_ANESSA_URL", ""),
+    "ANESSA_amazon": os.environ.get("AMAZON_ANESSA_URL", ""),
 }
 AFFILIATE_URL = "https://a.r10.to/h5yZS4"
 
-# AmazonアフィリエイトURL（.envで設定、未設定時は空文字）
-AMAZON_AFFILIATE_URLS = {
-    "RF美顔器": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
-    "美顔器": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
-    "日焼け止め": os.environ.get("AMAZON_SUNSCREEN_URL", ""),
-    "ダルバ": os.environ.get("AMAZON_DALBA_URL", ""),
-    "ORBIS": os.environ.get("AMAZON_ORBIS_URL", ""),
-    "オルビス": os.environ.get("AMAZON_ORBIS_URL", ""),
-    "MISSHA": os.environ.get("AMAZON_MISSHA_URL", ""),
-    "ミシャ": os.environ.get("AMAZON_MISSHA_URL", ""),
-    "肌ラボ": os.environ.get("AMAZON_HADALABO_URL", ""),
-    "ヒアルロン": os.environ.get("AMAZON_HADALABO_URL", ""),
-    "アネッサ": os.environ.get("AMAZON_ANESSA_URL", ""),
-    "ANESSA": os.environ.get("AMAZON_ANESSA_URL", ""),
-}
 
 def get_affiliate_url(product_name: str) -> str:
     for keyword, url in PRODUCT_AFFILIATE_URLS.items():
+        if "_amazon" in keyword:
+            continue
         if keyword.lower() in product_name.lower():
             return url
     return AFFILIATE_URL
+
+
+def get_amazon_affiliate_url(product_name: str) -> str:
+    for keyword, url in PRODUCT_AFFILIATE_URLS.items():
+        if not keyword.endswith("_amazon"):
+            continue
+        base_keyword = keyword.replace("_amazon", "")
+        if base_keyword.lower() in product_name.lower() and url:
+            return url
+    return ""
 
 AGENT_TIMEOUT = 30
 COUNTER_PATH = Path("/tmp/post_counter.txt")
@@ -207,7 +219,7 @@ def run_pipeline(dry_run: bool = False):
     elif dry_run:
         print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     else:
-        reply_result = reply_poster.run(post_id, dry_run=False)
+        reply_result = reply_poster.run(post_id, dry_run=False, product_name=best_post.get("product_name", ""))
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")

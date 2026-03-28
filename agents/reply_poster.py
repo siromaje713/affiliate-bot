@@ -13,11 +13,37 @@ BASE_URL = "https://graph.threads.net/v1.0"
 COUNTER_PATH = Path(__file__).parent / "cache" / "reply_count.json"
 REPLY_INTERVAL = 3  # 何回に1回リプするか
 
+# 商品キーワード → Amazon環境変数名マッピング
+_AMAZON_ENV_MAP = {
+    "RF美顔器": "AMAZON_RF_FACIAL_URL",
+    "美顔器": "AMAZON_RF_FACIAL_URL",
+    "日焼け止め": "AMAZON_SUNSCREEN_URL",
+    "ダルバ": "AMAZON_DALBA_URL",
+    "ORBIS": "AMAZON_ORBIS_URL",
+    "オルビス": "AMAZON_ORBIS_URL",
+    "MISSHA": "AMAZON_MISSHA_URL",
+    "ミシャ": "AMAZON_MISSHA_URL",
+    "肌ラボ": "AMAZON_HADALABO_URL",
+    "ヒアルロン": "AMAZON_HADALABO_URL",
+    "アネッサ": "AMAZON_ANESSA_URL",
+    "ANESSA": "AMAZON_ANESSA_URL",
+}
 
-def _get_affiliate_url(count: int) -> str:
+
+def _get_amazon_url(product_name: str) -> str:
+    """商品名から対応するAmazon URLを環境変数から取得する"""
+    for keyword, env_key in _AMAZON_ENV_MAP.items():
+        if keyword.lower() in product_name.lower():
+            url = os.environ.get(env_key, "")
+            if url:
+                return url
+    return ""
+
+
+def _get_affiliate_url(count: int, product_name: str = "") -> str:
     """偶数カウントは楽天、奇数はAmazon（未設定なら楽天）で交互に使う"""
     if count % 2 == 1:
-        amazon_url = os.environ.get("AMAZON_RF_FACIAL_URL", "")
+        amazon_url = _get_amazon_url(product_name)
         if amazon_url:
             return amazon_url
     return RAKUTEN_URL
@@ -76,7 +102,7 @@ def post_reply(post_id: str, text: str = "") -> str:
     return resp.json()["id"]
 
 
-def run(post_id: str, dry_run: bool = False) -> dict:
+def run(post_id: str, dry_run: bool = False, product_name: str = "") -> dict:
     """リプライ投稿を実行する（3回に1回のみ・楽天/Amazon交互）"""
     do_reply, count = _should_reply()
     print(f"[ReplyPoster] 投稿カウンター: {count} → {'リプあり' if do_reply else 'スキップ'}")
@@ -84,7 +110,7 @@ def run(post_id: str, dry_run: bool = False) -> dict:
     if not do_reply:
         return {"skipped": True, "count": count}
 
-    affiliate_url = _get_affiliate_url(count)
+    affiliate_url = _get_affiliate_url(count, product_name)
     platform = "Amazon" if "amazon" in affiliate_url.lower() or "amzn" in affiliate_url.lower() else "楽天"
     reply_text = f"🛒 商品詳細はこちら👇\n{affiliate_url}"
     print(f"[ReplyPoster] アフィリエイト: {platform}（カウンター{count}）")
