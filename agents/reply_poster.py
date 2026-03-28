@@ -8,11 +8,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AFFILIATE_URL = "https://a.r10.to/h5yZS4"
-REPLY_TEXT = f"🛒 商品詳細はこちら👇\n{AFFILIATE_URL}"
+RAKUTEN_URL = "https://a.r10.to/h5yZS4"
 BASE_URL = "https://graph.threads.net/v1.0"
 COUNTER_PATH = Path(__file__).parent / "cache" / "reply_count.json"
 REPLY_INTERVAL = 3  # 何回に1回リプするか
+
+
+def _get_affiliate_url(count: int) -> str:
+    """偶数カウントは楽天、奇数はAmazon（未設定なら楽天）で交互に使う"""
+    if count % 2 == 1:
+        amazon_url = os.environ.get("AMAZON_RF_FACIAL_URL", "")
+        if amazon_url:
+            return amazon_url
+    return RAKUTEN_URL
 
 
 def _load_counter() -> int:
@@ -36,7 +44,7 @@ def _should_reply() -> tuple[bool, int]:
     return (count % REPLY_INTERVAL == 0), count
 
 
-def post_reply(post_id: str) -> str:
+def post_reply(post_id: str, text: str = "") -> str:
     """指定投稿IDへのリプライを投稿してリプライIDを返す"""
     token = os.getenv("THREADS_ACCESS_TOKEN")
     user_id = os.getenv("THREADS_USER_ID")
@@ -46,7 +54,7 @@ def post_reply(post_id: str) -> str:
         f"{BASE_URL}/{user_id}/threads",
         params={
             "media_type": "TEXT",
-            "text": REPLY_TEXT,
+            "text": text or f"🛒 商品詳細はこちら👇\n{RAKUTEN_URL}",
             "reply_to_id": post_id,
             "access_token": token,
         },
@@ -69,18 +77,23 @@ def post_reply(post_id: str) -> str:
 
 
 def run(post_id: str, dry_run: bool = False) -> dict:
-    """リプライ投稿を実行する（3回に1回のみ）"""
+    """リプライ投稿を実行する（3回に1回のみ・楽天/Amazon交互）"""
     do_reply, count = _should_reply()
     print(f"[ReplyPoster] 投稿カウンター: {count} → {'リプあり' if do_reply else 'スキップ'}")
 
     if not do_reply:
         return {"skipped": True, "count": count}
 
+    affiliate_url = _get_affiliate_url(count)
+    platform = "Amazon" if "amazon" in affiliate_url.lower() or "amzn" in affiliate_url.lower() else "楽天"
+    reply_text = f"🛒 商品詳細はこちら👇\n{affiliate_url}"
+    print(f"[ReplyPoster] アフィリエイト: {platform}（カウンター{count}）")
+
     if dry_run:
-        print(f"[ReplyPoster][DRY RUN] リプライ予定:\n{REPLY_TEXT}")
-        return {"dry_run": True, "reply_text": REPLY_TEXT}
+        print(f"[ReplyPoster][DRY RUN] リプライ予定:\n{reply_text}")
+        return {"dry_run": True, "reply_text": reply_text}
 
     print(f"[ReplyPoster] リプライ投稿中...")
-    reply_id = post_reply(post_id)
+    reply_id = post_reply(post_id, text=reply_text)
     print(f"[ReplyPoster] リプライ完了: reply_id={reply_id}")
-    return {"reply_id": reply_id, "reply_text": REPLY_TEXT}
+    return {"reply_id": reply_id, "reply_text": reply_text, "platform": platform}

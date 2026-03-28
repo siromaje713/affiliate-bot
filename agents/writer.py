@@ -1,17 +1,4 @@
-"""ライターエージェント：SNSバイラル心理学に基づく20種バズパターン完全実装版
-
-バズパターンの分類（SNS心理学・バイラル研究ベース）：
-1. 感情揺さぶり系: 悲報/朗報/衝撃/怒り/安堵
-2. 認知ギャップ系: 期待裏切り/逆説/常識覆し
-3. 権威×秘密系: 専門家暴露/業界の裏側/禁断情報
-4. 時限・FOMO系: 今だけ/季節限定/知らないと損
-5. 社会的証明系: みんなやってる/売れすぎ/口コミ爆発
-6. 自己投影系: あるある/共感/自分事化
-7. 変化・成長系: 時系列変化/ビフォーアフター/続けた結果
-8. 疑問提起系: なぜ?/実は?/知ってた?
-9. 後悔回避系: 去年知りたかった/やらなきゃよかった/もっと早く
-10. 参加誘導系: 教えて/みんなは?/どっちが好き?
-"""
+"""ライターエージェント：Threadsバイラル投稿から動的抽出したパターンでコンテンツ生成"""
 import json
 from datetime import datetime
 from pathlib import Path
@@ -19,232 +6,37 @@ from utils.claude_cli import ask_json
 from utils.quality_scorer import score_post, similarity_score
 
 HISTORY_PATH = Path(__file__).parent.parent / "data" / "post_history.json"
+BUZZ_PATTERNS_PATH = Path(__file__).parent.parent / "data" / "buzz_patterns.json"
 MAX_HISTORY = 100
 SIMILARITY_THRESHOLD = 0.6
 
-# =====================================================
-# 20種バズパターン辞書（SNSバイラル心理学ベース）
-# =====================================================
-BUZZ_PATTERNS = {
 
-    # ── 感情揺さぶり系 ──────────────────────────────
-    "悲報系": {
-        "desc": "ネガティブ驚き→共感→解決策",
-        "templates": [
-            "悲報、{target}してる女性、実は{shocking_fact}だった",
-            "悲報、{action}してた私、{period}で{result}になってた",
-            "悲報、{product_type}にお金かけてたの、全部意味なかった話",
-        ],
-        "example": "悲報、美白を目指す女性、実は2026年の紫外線は4月からだった",
-    },
-    "朗報系": {
-        "desc": "ポジティブ発見→期待感→行動促進",
-        "templates": [
-            "朗報、{problem}で悩んでた私が{period}で{result}した話",
-            "朗報、{product}って{price_point}で買えたんだ",
-            "朗報、{action}するだけで{benefit}になれるって最高すぎ",
-        ],
-        "example": "朗報、毎日5分で肌が変わるって、もっと早く知りたかった",
-    },
-    "衝撃暴露系": {
-        "desc": "常識を壊す情報→拡散欲求",
-        "templates": [
-            "{authority}が教えてくれたこと、{shocking_fact}って本当だった",
-            "皮膚科で言われた衝撃の一言、{common_belief}は嘘だったらしい",
-            "美容部員に聞いたら、{product_type}は{right_way}が正解って言われた",
-        ],
-        "example": "皮膚科で言われた衝撃の一言、保湿は量より順番が全てって",
-    },
+def _load_buzz_patterns() -> list:
+    """data/buzz_patterns.jsonから動的パターンをロードする"""
+    if BUZZ_PATTERNS_PATH.exists():
+        try:
+            data = json.loads(BUZZ_PATTERNS_PATH.read_text(encoding="utf-8"))
+            patterns = data.get("patterns", [])
+            if patterns:
+                return patterns
+        except Exception:
+            pass
+    return []
 
-    # ── 認知ギャップ系 ──────────────────────────────
-    "期待裏切り系": {
-        "desc": "予想と真逆の結果→驚き→共有欲",
-        "templates": [
-            "{expensive}より{cheap}の方が{result}だった件",
-            "{popular_action}より{unexpected_action}の方が{benefit}だった",
-            "{period}続けて気づいた、{common_belief}って全然関係なかった",
-        ],
-        "example": "高い美容液より1000円台のこっちの方が効いた件、正直に話す",
-    },
-    "逆説系": {
-        "desc": "真逆の論理→好奇心→読了率UP",
-        "templates": [
-            "{benefit}したいなら{unexpected_way}が一番って気づいた",
-            "{product_type}をやめたら{benefit}になった話、これ本当",
-            "頑張れば頑張るほど{problem}になるって知ってた？",
-        ],
-        "example": "スキンケアをシンプルにしたら肌荒れが消えた話、これ本当",
-    },
-    "常識覆し系": {
-        "desc": "固定観念の破壊→驚き→シェア",
-        "templates": [
-            "{year}年の{category}、もう{old_way}の時代じゃなかった",
-            "みんながやってる{common_action}、実は{negative_fact}だったらしい",
-            "{common_belief}って嘘だって気づいてから{benefit}になった",
-        ],
-        "example": "2026年の日焼け止め、もうウォータープルーフだけじゃ足りなかった",
-    },
 
-    # ── 権威×秘密系 ──────────────────────────────
-    "専門家秘密系": {
-        "desc": "権威からの裏情報→信頼性×希少性",
-        "templates": [
-            "{expert}に聞いたら{shocking_fact}って教えてもらった",
-            "某{expert}がこっそり教えてくれた{product_type}の選び方",
-            "{brand}の中の人が言ってた{secret_tip}、みんな知ってた？",
-        ],
-        "example": "某皮膚科の先生がこっそり教えてくれた化粧水の選び方、みんな知ってた？",
-    },
-    "禁断本音系": {
-        "desc": "言えなかった本音の解禁→親近感爆発",
-        "templates": [
-            "ずっと言えなかったけど{popular_product}は正直{honest_opinion}だった",
-            "美容系インフルエンサーをやめて気づいた{honest_truth}",
-            "{period}使い続けてやっと言える、{product}の{honest_review}",
-        ],
-        "example": "ずっと言えなかったけど某有名美容液は正直コスパ最悪だった",
-    },
-
-    # ── 時限・FOMO系 ──────────────────────────────
-    "今すぐやれ系": {
-        "desc": "緊急性→即行動→FOMO",
-        "templates": [
-            "{month}中にやっておかないと{negative_consequence}になる話",
-            "{season}前にこれをやってない人、まじで後悔する",
-            "今すぐ{action}しないと{period}後に絶対後悔する",
-        ],
-        "example": "4月中に日焼け止め変えてない人、まじで5月後悔する",
-    },
-    "季節先取り系": {
-        "desc": "季節変化への先手→賢さアピール",
-        "templates": [
-            "{next_season}の肌を決めるのは{current_season}の{action}",
-            "去年{season_action}して大成功したから今年も絶対やる",
-            "{year}年{season}先取り、今から{action}しておくべき理由",
-        ],
-        "example": "夏の肌を決めるのは春の紫外線対策、去年これで差がついた",
-    },
-
-    # ── 社会的証明系 ──────────────────────────────
-    "口コミ爆発系": {
-        "desc": "みんなが使ってる→乗り遅れ感",
-        "templates": [
-            "これ{period}で{number}人に勧めた、それくらい{benefit}だった",
-            "友達に話したら全員{reaction}してた{product}の話",
-            "{number}人が買ってるって聞いて試したら本当に{result}だった",
-        ],
-        "example": "これ1ヶ月で5人に勧めた、それくらい肌が変わったから",
-    },
-    "比較選択系": {
-        "desc": "比較による優位性の実証",
-        "templates": [
-            "売上1位の{category}より断然こっちが{benefit}だった",
-            "{expensive_brand}と{cheap_brand}を比較したら{unexpected_result}だった",
-            "みんなが買ってる{popular}より{alternative}の方が{benefit}",
-        ],
-        "example": "売上1位の化粧水より断然こっちが浸透した話、価格差3倍なのに",
-    },
-
-    # ── 自己投影・共感系 ──────────────────────────────
-    "あるある系": {
-        "desc": "強烈な共感→いいね/RT衝動",
-        "templates": [
-            "{problem}で悩んでる人って私だけじゃないよね？",
-            "{situation}のとき{reaction}になるの、あるあるすぎない？",
-            "{age}代で{concern}気になり始めた人、正直に手あげて",
-        ],
-        "example": "27歳で毛穴が気になり始めた人、正直に手あげて",
-    },
-    "独白系": {
-        "desc": "日記的な本音→フォロワーとの距離縮小",
-        "templates": [
-            "昨日{action}してみたんだけど、{unexpected_result}すぎて笑った",
-            "最近{product}が手放せなくて、{reason}から",
-            "今日{situation}で気づいたこと、{insight}",
-        ],
-        "example": "昨日新しい美顔器試してみたんだけど、翌朝の肌がやばすぎて笑った",
-    },
-
-    # ── 変化・成長系 ──────────────────────────────
-    "ビフォーアフター系": {
-        "desc": "時系列の変化→結果への期待",
-        "templates": [
-            "{period}前の私に教えてあげたい{lesson}",
-            "{product}を始めて{period}、{change}が起きた話",
-            "1ヶ月・3ヶ月・半年後の肌が全然違う{product}の話",
-        ],
-        "example": "美顔器を始めて3ヶ月、輪郭が変わった気がするのは気のせいじゃなかった",
-    },
-    "継続結果系": {
-        "desc": "長期使用→信頼性と説得力",
-        "templates": [
-            "{period}間毎日使い続けて気づいた{product}の本当の実力",
-            "半信半疑で始めた{action}、{period}後に{result}になってた",
-            "{number}本リピートして分かった{product}が最強な理由",
-        ],
-        "example": "半信半疑で始めたRF美顔器、3ヶ月後に友達に顔変わったって言われた",
-    },
-
-    # ── 疑問提起系 ──────────────────────────────
-    "なぜ系": {
-        "desc": "問いかけ→読了率UP→エンゲージ",
-        "templates": [
-            "なんで{common_product}ってこんなに{problem}なんだろう",
-            "{product_type}って結局{question}なの？調べたら{surprising_answer}だった",
-            "{situation}のとき{action}するの、みんなも？それとも私だけ？",
-        ],
-        "example": "なんで高い化粧水ってこんなに使用感が微妙なんだろうってずっと思ってた",
-    },
-    "知ってた系": {
-        "desc": "情報格差の提示→優越感欲求",
-        "templates": [
-            "{fact}って知ってた？私は{period}前まで全然知らなかった",
-            "{product_type}の{right_way}、{percentage}の人が知らないらしい",
-            "{season}の{action}、実は{timing}にやるのが正解だって初めて知った",
-        ],
-        "example": "日焼け止めって塗る量が足りてない人が9割らしい、私もそうだった",
-    },
-
-    # ── 後悔回避系 ──────────────────────────────
-    "去年の後悔系": {
-        "desc": "過去の後悔の共有→学習欲求",
-        "templates": [
-            "去年{season}に{action}しなかったこと、今でも後悔してる",
-            "{period}前の自分に{lesson}って教えてあげたい",
-            "去年これ知らなかった自分が本当に惜しい",
-        ],
-        "example": "去年春に日焼け止め変えなかったこと、夏になってから本当に後悔した",
-    },
-    "コスト比較系": {
-        "desc": "価値の可視化→お得感の最大化",
-        "templates": [
-            "エステ代{price1}が{period}分に変わった話、これが正解だった",
-            "{expensive_action}に使ってたお金を{product}に変えたら{result}",
-            "{price}円で{expensive_equivalent}と同じ効果、これ以上ないコスパ",
-        ],
-        "example": "エステ代1回1万円が美顔器1台で3年分に変わった話",
-    },
-
-    # ── 参加誘導系 ──────────────────────────────
-    "集合知系": {
-        "desc": "読者参加の誘発→コメント数激増",
-        "templates": [
-            "みんな{category}って何使ってる？最近{concern}で変えたくて",
-            "{problem}で悩んでる人、おすすめ教えてほしい",
-            "{situation}のとき{action}してる人いる？正直レビュー聞きたい",
-        ],
-        "example": "みんな日焼け止めって何使ってる？最近焼けやすくて変えたくて",
-    },
-    "二択投票系": {
-        "desc": "意見表明欲求→返信率最大化",
-        "templates": [
-            "{option_a}派と{option_b}派、どっちが多いんだろう",
-            "{question}、みんなはどっち？私は{my_choice}派",
-            "{product_a}と{product_b}、正直どっちが{benefit}？",
-        ],
-        "example": "化粧水先塗り派と美容液先派、どっちが多いんだろう、私は化粧水派",
-    },
-}
+def _get_or_generate_patterns() -> list:
+    """パターンをロード、なければbuzz_researcherで生成する"""
+    patterns = _load_buzz_patterns()
+    if patterns:
+        return patterns
+    try:
+        from agents import buzz_researcher
+        print("[Writer] buzz_patterns.jsonが空のため動的生成します...")
+        context = buzz_researcher.get_buzz_context()
+        return context.get("patterns", [])
+    except Exception as e:
+        print(f"[Writer] パターン動的生成失敗: {e}")
+        return []
 
 
 def get_season_context():
@@ -292,35 +84,43 @@ def save_to_history(text: str):
 
 
 def get_pattern_examples() -> str:
-    """パターン辞書・種類数に一切依存しない。Claudeの全知識でバズ構造を自律生成。
-    winning_patterns.jsonがあれば実績バズデータもプロンプトに注入する"""
-    import json as _json
+    """動的バズパターン + 実績バズ投稿をプロンプト用文字列で返す"""
     from pathlib import Path as _Path
+
+    # 動的パターン（buzz_researcher由来）
+    dynamic_patterns = _get_or_generate_patterns()
+    pattern_section = ""
+    if dynamic_patterns:
+        lines = []
+        for p in dynamic_patterns[:8]:
+            lines.append(
+                f"・【{p.get('name','')}】冒頭: {p.get('hook_structure','')} / 語尾: {p.get('ending_pattern','')} / 例: {p.get('example','')[:50]}"
+            )
+        pattern_section = "【Threadsバイラル投稿から動的抽出したパターン（最優先）】\n" + "\n".join(lines) + "\n"
+
+    # 自分の実績バズ投稿
     _wp_path = _Path(__file__).parent / "cache" / "winning_patterns.json"
     winning_section = ""
     if _wp_path.exists():
         try:
-            with open(_wp_path, encoding="utf-8") as f:
-                wps = _json.load(f)
+            import json as _json
+            wps = _json.loads(_wp_path.read_text(encoding="utf-8"))
             if wps:
-                winning_section = "\n\n【実際にThreadsでバズった投稿（いいね数順・最重要参考）】\n"
+                winning_section = "\n【実際にThreadsでバズった投稿（いいね数順・最重要参考）】\n"
                 for i, p in enumerate(wps[:5], 1):
                     winning_section += f"{i}. ❤️{p.get('like_count',0)} 「{p.get('text','')[:60]}」\n"
-                winning_section += "\u2191これらのパターン・フック・言葉選びを最優先で参考にしてください。\n"
+                winning_section += "↑これらのパターン・フック・言葉選びを最優先で参考にしてください。\n"
         except Exception:
             pass
+
     return (
         "あなたはSNSバイラル構造の専門家です。\n"
-        "以下はあくまで参考トリガーの一部。これに限定せず、\n"
-        "あなたが知るあらゆるバズ構造・心理技法・フック手法を自由に駆使してください。\n\n"
-        "【参考：バズを生む心理トリガー（一部・上限なし）】\n"
+        f"{pattern_section}"
+        "上記パターンを優先しつつ、あなたが知るあらゆるバズ構造・心理技法も自由に駆使してください。\n\n"
+        "【参考：バズを生む心理トリガー（補助）】\n"
         "認知的不協和 / FOMO / 社会的証明 / 権威×秘密暴露 / 共感・あるある\n"
         "後悔回避 / 好奇心ギャップ / 逆説・常識覆し / 数字の具体性 / ビフォーアフター\n"
-        "時限性・緊急感 / 参加誘発 / 禁断の本音 / コスト比較 / 感情の振れ幅\n"
-        "トレンド同調 / 集合知への訴え / 変化の時系列 / 他にもClaudeが知る全手法\n\n"
-        "これらを組み合わせる・新構造を発明する・季節や商品に最適化するなど、\n"
-        "Claudeが自律判断して最も効果的なフックを生成してください。\n"
-        "パターンの種類数に上限はありません。"
+        f"{winning_section}"
     )
 def generate_patterns(
     product: dict,

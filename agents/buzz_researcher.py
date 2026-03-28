@@ -1,78 +1,222 @@
-"""バズリサーチエージェント：SNSトレンド・売れ筋からバズネタを収集"""
-from pytrends.request import TrendReq
+"""バズリサーチエージェント：Threadsバイラル投稿からリアルタイムでパターンを動的抽出"""
+import json
+import os
+import time
+import requests
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from dotenv import load_dotenv
 from utils.claude_cli import ask_json
 
-BEAUTY_KEYWORDS = [
-    "スキンケア", "美顔器", "日焼け止め", "美容液", "化粧水",
-    "クレンジング", "保湿クリーム", "毛穴ケア", "シワ対策", "美白",
-    "マスク", "アイクリーム", "化粧下地", "UVケア", "エイジングケア",
-]
+load_dotenv()
 
-VIRAL_ANGLES = [
-    "コスパ最強", "プチプラ", "デパコス級", "時短", "毛穴レス",
-    "翌朝もちもち", "マスク蒸れ対策", "日焼け止め焼けしない",
-    "40代でも若見え", "皮膚科医おすすめ",
-]
+BASE_URL = "https://graph.threads.net/v1.0"
+VIRAL_CACHE_PATH = Path(__file__).parent / "cache" / "viral_posts_cache.json"
+BUZZ_PATTERNS_PATH = Path(__file__).parent.parent / "data" / "buzz_patterns.json"
+CACHE_TTL_HOURS = 6
+
+COMPETITOR_USERNAMES = ["popo.biyou"]
 
 
-def fetch_rising_keywords() -> list[dict]:
-    """Google Trendsから急上昇キーワードを取得する"""
-    pytrends = TrendReq(hl="ja-JP", tz=540)
-    results = []
-    for i in range(0, len(BEAUTY_KEYWORDS), 5):
-        chunk = BEAUTY_KEYWORDS[i:i + 5]
-        try:
-            pytrends.build_payload(chunk, geo="JP", timeframe="now 7-d")
-            data = pytrends.interest_over_time()
-            if data.empty:
-                continue
-            for kw in chunk:
-                if kw in data.columns:
-                    score = int(data[kw].mean())
-                    if score > 0:
-                        results.append({"keyword": kw, "trend_score": score})
-        except Exception as e:
-            print(f"[BuzzResearcher] Google Trends エラー: {e}")
-    return sorted(results, key=lambda x: x["trend_score"], reverse=True)
+def _get_token() -> str:
+    return os.environ["THREADS_ACCESS_TOKEN"]
 
 
-def generate_buzz_ideas(trends: list[dict]) -> list[dict]:
-    """トレンド×バズ角度からバズりやすい投稿ネタを生成する"""
-    top_keywords = [t["keyword"] for t in trends[:5]] or BEAUTY_KEYWORDS[:5]
-    prompt = f"""スレッズ(@riko_cosme_lab)でバズりやすい美容アフィリエイト投稿ネタを考えてください。
+def _get_user_id() -> str:
+    return os.environ["THREADS_USER_ID"]
 
-今週の急上昇キーワード：{', '.join(top_keywords)}
-バズりやすい角度：{', '.join(VIRAL_ANGLES)}
-アカウント：20〜40代女性・スキンケア・美顔器メイン
 
-以下の条件でJSONを5件返してください（説明不要）：
-- バズ角度を必ず1つ使う
-- 「最安値」「絶対」「必ず」は使わない
-- 楽天で買える商品に絞る
-
-[
-  {{
-    "product_name": "商品名",
-    "keyword": "検索キーワード",
-    "hook_angle": "訴求角度",
-    "target_pain": "読者の悩み",
-    "buzz_factor": "バズりやすい理由"
-  }}
-]"""
+def _is_cache_fresh(cache_path: Path) -> bool:
+    if not cache_path.exists():
+        return False
     try:
-        return ask_json(prompt)
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        cached_at = datetime.fromisoformat(data["cached_at"])
+        return datetime.now(timezone.utc) - cached_at < timedelta(hours=CACHE_TTL_HOURS)
+    except Exception:
+        return False
+
+
+def _fetch_own_posts() -> list:
+    """自分の投稿をいいね+リプ数でスコアリングして返す"""
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/{_get_user_id()}/threads",
+            params={
+                "fields": "id,text,like_count,replies_count,timestamp",
+                "limit": 30,
+                "access_token": _get_token(),
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        posts = resp.json().get("data", [])
+        for p in posts:
+            p["engagement_score"] = p.get("like_count", 0) + p.get("replies_count", 0) * 2
+            p["source"] = "own"
+        return posts
     except Exception as e:
-        print(f"[BuzzResearcher] アイデア生成エラー: {e}")
+        print(f"[BuzzResearcher] 自分の投稿取得エラー: {e}")
         return []
 
 
-def run() -> list[dict]:
-    """バズリサーチャー実行。バズネタリストを返す。"""
-    print("[BuzzResearcher] 急上昇キーワードを収集中...")
-    trends = fetch_rising_keywords()
-    print(f"[BuzzResearcher] トップトレンド: {[t['keyword'] for t in trends[:3]]}")
+def _fetch_competitor_posts(username: str) -> list:
+    """競合アカウントの投稿を取得する（失敗時は空リスト）"""
+    try:
+        # username → user_id 解決
+        resp = requests.get(
+            f"{BASE_URL}/{username}",
+            params={
+                "fields": "id",
+                "access_token": _get_token(),
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        user_id = resp.json().get("id")
+        if not user_id:
+            return []
 
-    print("[BuzzResearcher] バズネタ生成中...")
-    ideas = generate_buzz_ideas(trends)
-    print(f"[BuzzResearcher] {len(ideas)}件のバズネタを生成")
-    return ideas
+        resp = requests.get(
+            f"{BASE_URL}/{user_id}/threads",
+            params={
+                "fields": "id,text,like_count,replies_count,timestamp",
+                "limit": 20,
+                "access_token": _get_token(),
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        posts = resp.json().get("data", [])
+        for p in posts:
+            p["engagement_score"] = p.get("like_count", 0) + p.get("replies_count", 0) * 2
+            p["source"] = f"competitor:{username}"
+        return posts
+    except Exception as e:
+        print(f"[BuzzResearcher] 競合 @{username} 取得失敗（スキップ）: {e}")
+        return []
+
+
+def _load_competitor_cache() -> list:
+    """既存のcompetitor_buzz.jsonをフォールバックとして読む"""
+    cache = Path(__file__).parent / "cache" / "competitor_buzz.json"
+    if not cache.exists():
+        return []
+    try:
+        posts_data = json.loads(cache.read_text(encoding="utf-8")).get("posts", [])
+        result = []
+        for p in posts_data:
+            if isinstance(p, dict):
+                p["engagement_score"] = p.get("like_count", 0) + p.get("replies_count", 0) * 2
+                p["source"] = "competitor_cache"
+                result.append(p)
+        return result
+    except Exception:
+        return []
+
+
+def fetch_viral_posts() -> list:
+    """自分+競合のバイラル投稿上位10件を取得・キャッシュする（6時間TTL）"""
+    if _is_cache_fresh(VIRAL_CACHE_PATH):
+        print("[BuzzResearcher] バイラルキャッシュ使用（TTL内）")
+        return json.loads(VIRAL_CACHE_PATH.read_text(encoding="utf-8")).get("posts", [])
+
+    print("[BuzzResearcher] バイラル投稿をリアルタイム取得中...")
+    all_posts = _fetch_own_posts()
+
+    for username in COMPETITOR_USERNAMES:
+        comp_posts = _fetch_competitor_posts(username)
+        if comp_posts:
+            all_posts.extend(comp_posts)
+        else:
+            all_posts.extend(_load_competitor_cache())
+            break
+
+    if not all_posts:
+        print("[BuzzResearcher] 投稿取得失敗")
+        return []
+
+    top10 = sorted(all_posts, key=lambda x: x.get("engagement_score", 0), reverse=True)[:10]
+
+    VIRAL_CACHE_PATH.parent.mkdir(exist_ok=True)
+    VIRAL_CACHE_PATH.write_text(
+        json.dumps(
+            {"cached_at": datetime.now(timezone.utc).isoformat(), "posts": top10},
+            ensure_ascii=False, indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(f"[BuzzResearcher] バイラル投稿 {len(top10)}件キャッシュ保存")
+    return top10
+
+
+def extract_patterns_from_viral(posts: list) -> list:
+    """バイラル投稿をClaudeに渡してバズパターンを動的抽出する"""
+    if not posts:
+        return []
+
+    posts_text = "\n".join([
+        f"{i+1}. ❤️{p.get('like_count',0)} 💬{p.get('replies_count',0)} 「{p.get('text','')[:80]}」"
+        for i, p in enumerate(posts)
+    ])
+
+    prompt = f"""以下はThreads美容アカウントの実際にエンゲージメントが高かった投稿です。
+
+{posts_text}
+
+これらを分析して、バズっている投稿の「型」をJSON形式で10〜15パターン抽出してください。
+固定のテンプレートではなく、実際の投稿から観察できる冒頭の型・感情トリガー・構成・語尾パターンを抽出すること。
+
+{{
+  "patterns": [
+    {{
+      "name": "パターン名（例: 悲報系・後悔告白系など）",
+      "hook_structure": "冒頭の型（例: 悲報、〇〇してた私が△△だった）",
+      "emotion_trigger": "使われている感情トリガー",
+      "ending_pattern": "語尾・締め方の特徴",
+      "example": "このパターンで書いた美容投稿の例文（100文字以内）"
+    }}
+  ]
+}}
+
+JSONのみ返してください（説明不要）。"""
+
+    try:
+        result = ask_json(prompt)
+        patterns = result.get("patterns", [])
+        print(f"[BuzzResearcher] {len(patterns)}パターン動的抽出完了")
+
+        BUZZ_PATTERNS_PATH.write_text(
+            json.dumps(
+                {"updated_at": datetime.now(timezone.utc).isoformat(), "patterns": patterns},
+                ensure_ascii=False, indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return patterns
+    except Exception as e:
+        print(f"[BuzzResearcher] パターン抽出エラー: {e}")
+        return []
+
+
+def get_buzz_context() -> dict:
+    """バイラル投稿取得→パターン抽出を実行してbuzz_patternsを返す（外部インターフェース）"""
+    posts = fetch_viral_posts()
+    patterns = extract_patterns_from_viral(posts)
+    return {"posts": posts, "patterns": patterns}
+
+
+def run() -> list:
+    """後方互換: バズネタリスト形式で返す"""
+    context = get_buzz_context()
+    posts = context.get("posts", [])
+    return [
+        {
+            "product_name": p.get("text", "")[:20],
+            "keyword": "バイラル投稿",
+            "hook_angle": "実績バズパターン",
+            "target_pain": "",
+            "buzz_factor": f"❤️{p.get('like_count',0)}",
+        }
+        for p in posts[:5]
+    ]

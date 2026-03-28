@@ -1,5 +1,6 @@
 """オーケストレーター：全エージェントを統括する"""
 import json
+import os
 import re
 import sys
 import time
@@ -11,6 +12,7 @@ from agents import researcher, writer, poster, analyst, buzz_analyzer, hook_opti
 from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 
+# 楽天アフィリエイトURL（既存）
 PRODUCT_AFFILIATE_URLS = {
     "RF美顔器": "https://a.r10.to/h5yZS4",
     "美顔器": "https://a.r10.to/h5yZS4",
@@ -28,6 +30,22 @@ PRODUCT_AFFILIATE_URLS = {
     "ANESSA": "https://a.r10.to/hkWt3Y",
 }
 AFFILIATE_URL = "https://a.r10.to/h5yZS4"
+
+# AmazonアフィリエイトURL（.envで設定、未設定時は空文字）
+AMAZON_AFFILIATE_URLS = {
+    "RF美顔器": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
+    "美顔器": os.environ.get("AMAZON_RF_FACIAL_URL", ""),
+    "日焼け止め": os.environ.get("AMAZON_SUNSCREEN_URL", ""),
+    "ダルバ": os.environ.get("AMAZON_DALBA_URL", ""),
+    "ORBIS": os.environ.get("AMAZON_ORBIS_URL", ""),
+    "オルビス": os.environ.get("AMAZON_ORBIS_URL", ""),
+    "MISSHA": os.environ.get("AMAZON_MISSHA_URL", ""),
+    "ミシャ": os.environ.get("AMAZON_MISSHA_URL", ""),
+    "肌ラボ": os.environ.get("AMAZON_HADALABO_URL", ""),
+    "ヒアルロン": os.environ.get("AMAZON_HADALABO_URL", ""),
+    "アネッサ": os.environ.get("AMAZON_ANESSA_URL", ""),
+    "ANESSA": os.environ.get("AMAZON_ANESSA_URL", ""),
+}
 
 def get_affiliate_url(product_name: str) -> str:
     for keyword, url in PRODUCT_AFFILIATE_URLS.items():
