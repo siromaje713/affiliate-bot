@@ -19,7 +19,7 @@ SEASONAL_KEYWORDS = {
     12: ["年末美容", "保湿", "乾燥対策", "来年美肌準備", "美顔器"],
 }
 
-LAST_USED_PATH = Path(__file__).parent.parent / "data" / "last_used_products.json"
+LAST_USED_PATH = Path("/tmp/last_used_products.json")
 
 
 def get_current_season_context():
@@ -60,7 +60,6 @@ def record_used(product_name: str):
     used = load_last_used()
     if product_name and product_name not in used:
         used.insert(0, product_name)
-    LAST_USED_PATH.parent.mkdir(exist_ok=True)
     LAST_USED_PATH.write_text(
         json.dumps({"updated_at": datetime.now().isoformat(), "products": used[:10]}, ensure_ascii=False, indent=2),
         encoding="utf-8"

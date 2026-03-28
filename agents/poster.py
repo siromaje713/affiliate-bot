@@ -8,8 +8,8 @@ from pathlib import Path
 from utils import threads_api
 from agents.writer import save_to_history
 
-HISTORY_PATH = Path(__file__).parent.parent / "data" / "post_history.json"
-LOG_PATH = Path(__file__).parent.parent / "data" / "post_log.json"
+HISTORY_PATH = Path("/tmp/post_history.json")
+LOG_PATH = Path("/tmp/post_log.json")
 
 # 投稿時間帯（時）とゆらぎ（分）
 SCHEDULE_HOURS = [6, 12, 21]

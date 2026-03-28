@@ -5,7 +5,7 @@ from pathlib import Path
 from utils.claude_cli import ask_json
 from utils.quality_scorer import score_post, similarity_score
 
-HISTORY_PATH = Path(__file__).parent.parent / "data" / "post_history.json"
+HISTORY_PATH = Path("/tmp/post_history.json")
 BUZZ_PATTERNS_PATH = Path(__file__).parent.parent / "data" / "buzz_patterns.json"
 MAX_HISTORY = 100
 SIMILARITY_THRESHOLD = 0.6

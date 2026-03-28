@@ -164,7 +164,7 @@ PRODUCT_AFFILIATE_URLS = {
 
 _DEFAULT_URL = "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22"  # フォールバック（アネッサAmazon）
 
-USED_URLS_PATH = Path("data/used_reply_urls.json")
+USED_URLS_PATH = Path("/tmp/used_reply_urls.json")
 _USED_URL_TTL_HOURS = 24
 
 

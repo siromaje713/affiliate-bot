@@ -10,7 +10,7 @@ load_dotenv()
 
 RAKUTEN_URL = "https://a.r10.to/h5yZS4"
 BASE_URL = "https://graph.threads.net/v1.0"
-COUNTER_PATH = Path(__file__).parent / "cache" / "reply_count.json"
+COUNTER_PATH = Path("/tmp/reply_count.json")
 REPLY_INTERVAL = 1  # 毎回リプする
 
 # 商品キーワード → Amazon環境変数名マッピング
@@ -59,7 +59,6 @@ def _load_counter() -> int:
 
 
 def _save_counter(count: int):
-    COUNTER_PATH.parent.mkdir(exist_ok=True)
     COUNTER_PATH.write_text(json.dumps({"count": count}, ensure_ascii=False), encoding="utf-8")
 
 
