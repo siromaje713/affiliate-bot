@@ -316,8 +316,9 @@ def run_pipeline(dry_run: bool = False):
             pass
 
     best_post = None
-    for product in products[:1]:
-        print(f"\n[Orchestrator] 「{product['product_name']}」処理中...")
+    product = random.choice(products)
+    print(f"\n[Orchestrator] 選択商品: 「{product['product_name']}」（{len(products)}件からランダム選択）")
+    for product in [product]:
         hook_result = run_with_timeout(
             f"HookOptimizer({product['product_name']})",
             hook_optimizer.run,
@@ -345,7 +346,7 @@ def run_pipeline(dry_run: bool = False):
     if not dry_run and random.random() < 0.3:
         print("[Orchestrator] スレッド投稿モード（30%抽選）")
         thread_result = thread_poster.post_thread(
-            product_name=best_post.get("product_name", "美容商品"),
+            product_name=best_post.get("product", {}).get("product_name", "美容商品"),
             hook=best_post["text"].split("\n")[0][:40],
         )
         write_counter(counter + 1)
@@ -357,7 +358,8 @@ def run_pipeline(dry_run: bool = False):
     write_counter(counter + 1)
 
     post_id = post_result.get("post_id")
-    reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(best_post.get('product_name', ''), post_count=counter)}"
+    _pname = best_post.get("product", {}).get("product_name", "")
+    reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(_pname, post_count=counter)}"
 
     if post_type == "buzz":
         if dry_run:
@@ -367,7 +369,7 @@ def run_pipeline(dry_run: bool = False):
     elif dry_run:
         print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     else:
-        reply_result = reply_poster.run(post_id, dry_run=False, product_name=best_post.get("product_name", ""))
+        reply_result = reply_poster.run(post_id, dry_run=False, product_name=best_post.get("product", {}).get("product_name", ""))
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
