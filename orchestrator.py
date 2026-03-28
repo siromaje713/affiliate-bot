@@ -32,9 +32,9 @@ AFFILIATE_URL = "https://a.r10.to/h5yZS4"  # フォールバック用
 
 def get_affiliate_url(product_name: str) -> str:
     for keyword, url in PRODUCT_AFFILIATE_URLS.items():
-          if keyword.lower() in product_name.lower():
-                  return url
-              return AFFILIATE_URL
+        if keyword.lower() in product_name.lower():
+            return url
+    return AFFILIATE_URL
 AGENT_TIMEOUT = 30  # 各エージェントの最大待機秒数
 COUNTER_PATH = Path("/tmp/post_counter.txt")
 
