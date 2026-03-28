@@ -25,27 +25,52 @@ _FALLBACK_PATTERNS = [
 
 def _load_buzz_patterns() -> list:
     """data/buzz_patterns.jsonから動的パターンをロードする。
-    patternsがdict型（旧形式）の場合はlist形式に変換する。"""
-    if BUZZ_PATTERNS_PATH.exists():
-        try:
-            data = json.loads(BUZZ_PATTERNS_PATH.read_text(encoding="utf-8"))
-            patterns = data.get("patterns", [])
-            if not patterns:
-                return []
-            # dict型（旧形式: {pattern_name: [example, ...]}）をlist形式に変換
-            if isinstance(patterns, dict):
-                patterns = [
-                    {
-                        "name": k,
-                        "hook_structure": v[0] if v else "",
-                        "ending_pattern": "",
-                        "example": v[0] if v else "",
-                    }
-                    for k, v in patterns.items()
-                ]
-            return patterns
-        except Exception:
-            pass
+    dict型/list型/ネスト形式など全形式を安全にlist[dict]へ正規化する。"""
+    if not BUZZ_PATTERNS_PATH.exists():
+        return []
+    try:
+        data = json.loads(BUZZ_PATTERNS_PATH.read_text(encoding="utf-8"))
+        # top-levelがdictでなければ諦める
+        if not isinstance(data, dict):
+            return []
+        patterns = data.get("patterns") or data  # "patterns"キーがなければ全体を試みる
+        if not patterns:
+            return []
+
+        # dict型（旧形式: {"before_after型": ["例文1", ...], ...}）→ list[dict]に変換
+        if isinstance(patterns, dict):
+            result = []
+            for k, v in patterns.items():
+                if isinstance(v, list):
+                    example = str(v[0]) if v else ""
+                elif isinstance(v, str):
+                    example = v
+                else:
+                    example = ""
+                result.append({
+                    "name": str(k),
+                    "hook_structure": example,
+                    "ending_pattern": "",
+                    "example": example,
+                })
+            return result
+
+        # list型（新形式）→ 各要素をdictに正規化
+        if isinstance(patterns, list):
+            result = []
+            for item in patterns:
+                if not isinstance(item, dict):
+                    continue
+                result.append({
+                    "name": str(item.get("name", "")),
+                    "hook_structure": str(item.get("hook_structure", "")),
+                    "ending_pattern": str(item.get("ending_pattern", "")),
+                    "example": str(item.get("example", "")),
+                })
+            return result
+
+    except Exception:
+        pass
     return []
 
 
@@ -117,14 +142,21 @@ def get_pattern_examples() -> str:
 
     # 動的パターン（buzz_researcher由来）
     dynamic_patterns = _get_or_generate_patterns()
+    # 必ずlist[dict]に正規化（予期しない型が来てもクラッシュしない）
+    if not isinstance(dynamic_patterns, list):
+        dynamic_patterns = []
     pattern_section = ""
     if dynamic_patterns:
         lines = []
         for p in dynamic_patterns[:8]:
+            if not isinstance(p, dict):
+                continue
+            example = str(p.get("example", ""))[:50]
             lines.append(
-                f"・【{p.get('name','')}】冒頭: {p.get('hook_structure','')} / 語尾: {p.get('ending_pattern','')} / 例: {p.get('example','')[:50]}"
+                f"・【{p.get('name','')}】冒頭: {p.get('hook_structure','')} / 語尾: {p.get('ending_pattern','')} / 例: {example}"
             )
-        pattern_section = "【Threadsバイラル投稿から動的抽出したパターン（最優先）】\n" + "\n".join(lines) + "\n"
+        if lines:
+            pattern_section = "【Threadsバイラル投稿から動的抽出したパターン（最優先）】\n" + "\n".join(lines) + "\n"
 
     # 自分の実績バズ投稿
     _wp_path = _Path(__file__).parent / "cache" / "winning_patterns.json"

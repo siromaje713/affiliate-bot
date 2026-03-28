@@ -271,7 +271,12 @@ def run_pipeline(dry_run: bool = False):
     buzz_patterns = {}
     if buzz_cache.exists():
         try:
-            buzz_patterns = json.loads(buzz_cache.read_text(encoding="utf-8")).get("patterns", {})
+            raw_patterns = json.loads(buzz_cache.read_text(encoding="utf-8")).get("patterns", {})
+            # hook_optimizerはdict形式を期待するため、list形式を変換して渡す
+            if isinstance(raw_patterns, list):
+                buzz_patterns = {p.get("name", f"pattern_{i}"): [p.get("example", "")] for i, p in enumerate(raw_patterns) if isinstance(p, dict)}
+            elif isinstance(raw_patterns, dict):
+                buzz_patterns = raw_patterns
             print("[Orchestrator] BuzzAnalyzer: キャッシュ使用")
         except Exception:
             pass

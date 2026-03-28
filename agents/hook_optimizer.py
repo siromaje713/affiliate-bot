@@ -34,13 +34,21 @@ def apply_weights(hook: str, base_score: float) -> float:
     return min(score, 10.0)
 
 
-def generate_hooks(product: dict, buzz_patterns: dict) -> list[dict]:
+def generate_hooks(product: dict, buzz_patterns) -> list:
     """4タイプのフックを生成する"""
+    # buzz_patternsがlistでもdictでも動作するよう正規化
+    if isinstance(buzz_patterns, list):
+        items = [(p.get("name", ""), [p.get("example", "")]) for p in buzz_patterns if isinstance(p, dict)]
+    elif isinstance(buzz_patterns, dict):
+        items = list(buzz_patterns.items())
+    else:
+        items = []
+
     pattern_examples = "\n".join([
-        f"【{t}】" + " / ".join(examples[:2])
-        for t, examples in buzz_patterns.items()
+        f"【{t}】" + " / ".join([str(e) for e in examples[:2]])
+        for t, examples in items
         if examples
-    ]) if buzz_patterns else "（パターンなし）"
+    ]) if items else "（パターンなし）"
 
     prompt = f"""スレッズ美容投稿の冒頭1行（フック）を4パターン生成してください。
 
