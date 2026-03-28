@@ -102,18 +102,20 @@ def post_reply(post_id: str, text: str = "") -> str:
     return resp.json()["id"]
 
 
-def run(post_id: str, dry_run: bool = False, product_name: str = "") -> dict:
-    """リプライ投稿を実行する（3回に1回のみ・楽天/Amazon交互）"""
+def run(post_id: str, dry_run: bool = False, product_name: str = "", affiliate_url: str = "") -> dict:
+    """リプライ投稿を実行する。affiliate_urlが指定されればそれを使う。"""
     do_reply, count = _should_reply()
     print(f"[ReplyPoster] 投稿カウンター: {count} → {'リプあり' if do_reply else 'スキップ'}")
 
     if not do_reply:
         return {"skipped": True, "count": count}
 
-    affiliate_url = _get_affiliate_url(count, product_name)
+    if not affiliate_url:
+        affiliate_url = _get_affiliate_url(count, product_name)
+
     platform = "Amazon" if "amazon" in affiliate_url.lower() or "amzn" in affiliate_url.lower() else "楽天"
     reply_text = f"🛒 商品詳細はこちら👇\n{affiliate_url}\n#PR"
-    print(f"[ReplyPoster] アフィリエイト: {platform}（カウンター{count}）")
+    print(f"[ReplyPoster] アフィリエイト: {platform} URL: {affiliate_url[:60]}")
 
     if dry_run:
         print(f"[ReplyPoster][DRY RUN] リプライ予定:\n{reply_text}")
@@ -122,4 +124,4 @@ def run(post_id: str, dry_run: bool = False, product_name: str = "") -> dict:
     print(f"[ReplyPoster] リプライ投稿中...")
     reply_id = post_reply(post_id, text=reply_text)
     print(f"[ReplyPoster] リプライ完了: reply_id={reply_id}")
-    return {"reply_id": reply_id, "reply_text": reply_text, "platform": platform}
+    return {"reply_id": reply_id, "reply_text": reply_text, "platform": platform, "url": affiliate_url}

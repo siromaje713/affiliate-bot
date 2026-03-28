@@ -7,6 +7,7 @@ import time
 import random
 import argparse
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from datetime import datetime, timedelta
 from pathlib import Path
 from agents import researcher, writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
 from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
@@ -96,11 +97,6 @@ PRODUCT_AFFILIATE_URLS = {
         "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/h5b4am",
     },
-    "ダルバ": {
-        "name": "ダルバ 日焼け止め",
-        "amazon": "",
-        "rakuten": "https://a.r10.to/h5b4am",
-    },
     # ── 美顔器・美容機器 ────────────────────────────
     "リファ": {
         "name": "リファ ハートコーム Aira",
@@ -121,16 +117,6 @@ PRODUCT_AFFILIATE_URLS = {
         "name": "パナソニック 美顔器 イオンエフェクター",
         "amazon": "https://www.amazon.co.jp/dp/B09TVHF7LY?tag=rikocosmelab-22",
         "rakuten": "",
-    },
-    "RF美顔器": {
-        "name": "RF美顔器",
-        "amazon": "",
-        "rakuten": "https://a.r10.to/h5yZS4",
-    },
-    "美顔器": {
-        "name": "美顔器全般",
-        "amazon": "",
-        "rakuten": "https://a.r10.to/h5yZS4",
     },
     # ── ヘアケア ────────────────────────────────────
     "ORBIS": {
@@ -174,43 +160,60 @@ PRODUCT_AFFILIATE_URLS = {
         "amazon": "https://www.amazon.co.jp/dp/B092KCNLPB?tag=rikocosmelab-22",
         "rakuten": "",
     },
-    # ── その他（既存） ───────────────────────────────
-    "MISSHA": {
-        "name": "MISSHA アンプル",
-        "amazon": "",
-        "rakuten": "https://a.r10.to/hktN94",
-    },
-    "ミシャ": {
-        "name": "ミシャ アンプル",
-        "amazon": "",
-        "rakuten": "https://a.r10.to/hktN94",
-    },
-    "アンプル": {
-        "name": "ミシャ アンプル",
-        "amazon": "",
-        "rakuten": "https://a.r10.to/hktN94",
-    },
 }
 
-_DEFAULT_URL = "https://a.r10.to/hkWt3Y"  # フォールバック（アネッサ楽天）
+_DEFAULT_URL = "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22"  # フォールバック（アネッサAmazon）
+
+USED_URLS_PATH = Path("data/used_reply_urls.json")
+_USED_URL_TTL_HOURS = 24
 
 
 def get_affiliate_url(product_name: str, post_count: int = 0) -> str:
-    """商品名でキーワードマッチ。post_countで楽天/Amazonを交互に返す。"""
-    matched = None
+    """商品名でキーワードマッチ。常にAmazon URLを返す。"""
     for keyword, info in PRODUCT_AFFILIATE_URLS.items():
         if keyword.lower() in product_name.lower():
-            matched = info
-            break
+            return info.get("amazon") or _DEFAULT_URL
+    return _DEFAULT_URL
 
-    if matched is None:
-        return _DEFAULT_URL
 
-    # post_countが奇数→Amazon優先、偶数→楽天優先（未設定なら逆を使う）
-    if post_count % 2 == 1:
-        return matched.get("amazon") or matched.get("rakuten") or _DEFAULT_URL
-    else:
-        return matched.get("rakuten") or matched.get("amazon") or _DEFAULT_URL
+def _load_used_urls() -> dict:
+    if not USED_URLS_PATH.exists():
+        return {}
+    try:
+        return json.loads(USED_URLS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_used_url(url: str):
+    used = _load_used_urls()
+    cutoff = (datetime.now() - timedelta(hours=_USED_URL_TTL_HOURS)).isoformat()
+    used = {u: t for u, t in used.items() if t > cutoff}
+    used[url] = datetime.now().isoformat()
+    USED_URLS_PATH.parent.mkdir(exist_ok=True)
+    USED_URLS_PATH.write_text(json.dumps(used, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def get_fresh_affiliate_url(product_name: str) -> str:
+    """24時間以内に使ったURLを除外してAmazon URLを返す。全使用済みならリセット。"""
+    primary = get_affiliate_url(product_name)
+    used = _load_used_urls()
+    cutoff = (datetime.now() - timedelta(hours=_USED_URL_TTL_HOURS)).isoformat()
+    recently_used = {u for u, t in used.items() if t > cutoff}
+
+    if primary not in recently_used:
+        return primary
+
+    # 別のAmazon URLを探す（重複回避）
+    for keyword, info in PRODUCT_AFFILIATE_URLS.items():
+        url = info.get("amazon", "")
+        if url and url not in recently_used:
+            print(f"[Orchestrator] URL重複回避: 「{product_name}」→「{info['name']}」のURLを使用")
+            return url
+
+    # 全URL使用済みならリセット
+    print("[Orchestrator] 全URL使用済みのためリセット（primaryを再利用）")
+    return primary
 
 AGENT_TIMEOUT = 30
 COUNTER_PATH = Path("/tmp/post_counter.txt")
@@ -355,10 +358,12 @@ def run_pipeline(dry_run: bool = False):
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
 
+    _pname = best_post.get("product", {}).get("product_name", "美容商品")
+
     if not dry_run and random.random() < 0.3:
         print("[Orchestrator] スレッド投稿モード（30%抽選）")
-        _pname = best_post.get("product", {}).get("product_name", "美容商品")
-        _aff_url = get_affiliate_url(_pname, post_count=counter)
+        _aff_url = get_fresh_affiliate_url(_pname)
+        _save_used_url(_aff_url)
         thread_result = thread_poster.post_thread(
             product_name=_pname,
             hook=best_post["text"].split("\n")[0][:40],
@@ -373,14 +378,15 @@ def run_pipeline(dry_run: bool = False):
     write_counter(counter + 1)
 
     post_id = post_result.get("post_id")
-    _pname = best_post.get("product", {}).get("product_name", "")
-    reply_text = f"🛒 商品詳細はこちら👇\n{get_affiliate_url(_pname, post_count=counter)}"
+    _aff_url = get_fresh_affiliate_url(_pname)
+    reply_text = f"🛒 商品詳細はこちら👇\n{_aff_url}\n#PR"
 
     # buzz型・link型どちらも毎回アフィリエイトリプライを付ける
     if dry_run:
         print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     else:
-        reply_result = reply_poster.run(post_id, dry_run=False, product_name=_pname)
+        _save_used_url(_aff_url)
+        reply_result = reply_poster.run(post_id, dry_run=False, affiliate_url=_aff_url)
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
