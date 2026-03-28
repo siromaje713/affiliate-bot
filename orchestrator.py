@@ -16,6 +16,10 @@ try:
     from line_notify import notify as line_notify
 except ImportError:
     line_notify = None
+try:
+    from slack_notify import notify as slack_notify
+except ImportError:
+    slack_notify = None
 
 # アフィリエイトURL辞書（楽天 + Amazon、post_countで交互切り替え）
 # Amazonリンク形式: https://www.amazon.co.jp/dp/[ASIN]?tag=rikocosmelab-22
@@ -371,6 +375,9 @@ def run_pipeline(dry_run: bool = False):
         )
         write_counter(counter + 1)
         print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
+        if slack_notify:
+            _hook = best_post["text"].split("\n")[0][:40]
+            slack_notify("success", f"🧵 スレッド投稿完了\n商品: {_pname}\nフック: {_hook}\nURL: {_aff_url}")
         print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
         return
 
@@ -388,6 +395,17 @@ def run_pipeline(dry_run: bool = False):
         _save_used_url(_aff_url)
         reply_result = reply_poster.run(post_id, dry_run=False, affiliate_url=_aff_url)
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
+        if slack_notify:
+            _hook = best_post["text"].split("\n")[0][:50]
+            _score = best_post.get("score", "?")
+            slack_notify("success",
+                f"✅ 投稿完了\n"
+                f"商品: {_pname}\n"
+                f"フック: {_hook}\n"
+                f"スコア: {_score}\n"
+                f"アフィURL: {_aff_url}\n"
+                f"投稿ID: {post_id}"
+            )
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
 
@@ -399,9 +417,29 @@ def run_analytics():
         print(f" • {imp}")
     print(f"明日のテーマ: {report.get('tomorrow_theme', 'なし')}")
 
+
+def run_research():
+    """Threadsバイラル投稿を収集・分析してbuzz_patterns.jsonを更新"""
+    from agents import buzz_researcher
+    print("[Research] バズリサーチ開始...")
+    context = buzz_researcher.get_buzz_context()
+    patterns = context.get("patterns", [])
+    print(f"[Research] {len(patterns)}件のパターンを取得・保存完了")
+    print(f"[Research] 保存先: data/buzz_patterns.json")
+
+
+def run_insights():
+    """自分のThreads投稿の反応データを分析してown_insights.jsonを更新"""
+    print("[Insights] インサイト分析開始...")
+    results = insights_analyzer.run()
+    count = len(results) if results else 0
+    print(f"[Insights] {count}件の勝ちパターンを更新完了")
+    print(f"[Insights] 保存先: agents/cache/own_insights.json")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="affiliate-bot オーケストレーター")
-    parser.add_argument("--mode", choices=["post", "analytics", "reply"], default="post")
+    parser.add_argument("--mode", choices=["post", "analytics", "reply", "research", "insights"], default="post")
     parser.add_argument("--dry-run", action="store_true", help="実際には投稿しない")
     args = parser.parse_args()
     try:
@@ -411,7 +449,13 @@ if __name__ == "__main__":
             run_analytics()
         elif args.mode == "reply":
             conversation_agent.run_conversation()
+        elif args.mode == "research":
+            run_research()
+        elif args.mode == "insights":
+            run_insights()
     except Exception as e:
         import traceback
         print(f"❌ [Orchestrator] エラー発生\n{type(e).__name__}: {str(e)[:200]}")
+        if slack_notify:
+            slack_notify("error", f"{type(e).__name__}: {str(e)[:200]}")
         raise
