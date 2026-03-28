@@ -318,22 +318,20 @@ def run_pipeline(dry_run: bool = False):
     best_post = None
     product = random.choice(products)
     print(f"\n[Orchestrator] 選択商品: 「{product['product_name']}」（{len(products)}件からランダム選択）")
-    for product in [product]:
-        hook_result = run_with_timeout(
-            f"HookOptimizer({product['product_name']})",
-            hook_optimizer.run,
-            product, buzz_patterns,
-            timeout=30, fallback=None
-        )
-        hook_text = hook_result["hook"] if hook_result else None
-        result = run_with_timeout(
-            f"Writer({product['product_name']})",
-            lambda p=product, h=hook_text, w=win_patterns, c=competitor_posts, pt=post_type: writer.run(p, hook=h, win_patterns=w, competitor_posts=c, post_type=pt),
-            timeout=60, fallback=None
-        )
-        if result:
-            if best_post is None or result["score"] > best_post["score"]:
-                best_post = result
+    hook_result = run_with_timeout(
+        f"HookOptimizer({product['product_name']})",
+        hook_optimizer.run,
+        product, buzz_patterns,
+        timeout=30, fallback=None
+    )
+    hook_text = hook_result["hook"] if hook_result else None
+    result = run_with_timeout(
+        f"Writer({product['product_name']})",
+        lambda p=product, h=hook_text, w=win_patterns, c=competitor_posts, pt=post_type: writer.run(p, hook=h, win_patterns=w, competitor_posts=c, post_type=pt),
+        timeout=60, fallback=None
+    )
+    if result:
+        best_post = result
 
     if not best_post:
         print("[Orchestrator] 品質基準を満たす投稿が生成できませんでした")
@@ -345,9 +343,12 @@ def run_pipeline(dry_run: bool = False):
 
     if not dry_run and random.random() < 0.3:
         print("[Orchestrator] スレッド投稿モード（30%抽選）")
+        _pname = best_post.get("product", {}).get("product_name", "美容商品")
+        _aff_url = get_affiliate_url(_pname, post_count=counter)
         thread_result = thread_poster.post_thread(
-            product_name=best_post.get("product", {}).get("product_name", "美容商品"),
+            product_name=_pname,
             hook=best_post["text"].split("\n")[0][:40],
+            affiliate_url=_aff_url,
         )
         write_counter(counter + 1)
         print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
