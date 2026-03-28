@@ -10,7 +10,6 @@ from agents import researcher, writer, poster, analyst, buzz_analyzer, hook_opti
 from agents import insights_analyzer, web_scraper
 
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-from line_notify import notify as line_notify
 
 PRODUCT_AFFILIATE_URLS = {
     "RF美顔器":      "https://a.r10.to/h5yZS4",
@@ -168,7 +167,6 @@ if not best_post:
     msg = "品質基準を満たす投稿が生成できませんでした"
     print(f"[Orchestrator] {msg}")
     if not dry_run:
-        line_notify("error", msg)
     return
 
 # 5. 本文からリンクを完全除去してから投稿
@@ -187,14 +185,12 @@ if post_type == "buzz":
         print(f"[Orchestrator][DRY RUN] buzz型のためリプライはスキップ")
     else:
         print(f"[Orchestrator] buzz型のためリプライはスキップ")
-        line_notify("success", best_post["text"][:30])
 elif dry_run:
     print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     print(f"[Orchestrator][DRY RUN] LINE通知はスキップ")
 else:
     reply_result = reply_poster.run(post_id, dry_run=False)
     print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
-    line_notify("success", best_post["text"][:30])
 
 print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
 
@@ -225,7 +221,6 @@ except Exception as e:
         + type(e).__name__ + ": " + str(e)[:200])
     print(err_msg)
     try:
-        line_notify(err_msg)
     except Exception as ne:
         print("[LineNotify] \u901a\u77e5\u5931\u6557: " + str(ne))
     raise
