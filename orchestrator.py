@@ -32,12 +32,12 @@ PRODUCT_AFFILIATE_URLS = {
     },
     "肌ラボ": {
         "name": "肌ラボ 極潤ヒアルロン液",
-        "amazon": "https://www.amazon.co.jp/dp/B001GPIQKE?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B000FQUGXA?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/h8N8Bv",
     },
     "ヒアルロン": {
         "name": "肌ラボ 極潤ヒアルロン液",
-        "amazon": "https://www.amazon.co.jp/dp/B001GPIQKE?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B000FQUGXA?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/h8N8Bv",
     },
     "ルルルン": {
@@ -57,48 +57,58 @@ PRODUCT_AFFILIATE_URLS = {
     },
     "雪肌精": {
         "name": "雪肌精 化粧水",
-        "amazon": "https://www.amazon.co.jp/dp/B003EPYUJE?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B0010MGT70?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "キュレル": {
         "name": "キュレル 潤浸保湿 化粧水",
-        "amazon": "https://www.amazon.co.jp/dp/B003DFOAP8?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B001JF7Z2Q?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "セタフィル": {
         "name": "セタフィル モイスチャライジングローション",
-        "amazon": "https://www.amazon.co.jp/dp/B0009ET2UI?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B00VHRI9SA?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "ニベア": {
         "name": "ニベア クリーム",
-        "amazon": "https://www.amazon.co.jp/dp/B003ZRGDPG?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B000FQMT8K?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "メラノCC": {
+        "name": "メラノCC 集中対策美容液",
+        "amazon": "https://www.amazon.co.jp/dp/B08WMGW2S4?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "イニスフリー": {
+        "name": "イニスフリー ノーセバム ミネラルパウダー",
+        "amazon": "https://www.amazon.co.jp/dp/B0C851WQFJ?tag=rikocosmelab-22",
         "rakuten": "",
     },
     # ── 日焼け止め・UVケア ──────────────────────────
     "アネッサ": {
         "name": "アネッサ パーフェクトUV スキンケアミルク",
-        "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/hkWt3Y",
     },
     "ANESSA": {
         "name": "アネッサ パーフェクトUV スキンケアミルク",
-        "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/hkWt3Y",
     },
     "スキンアクア": {
         "name": "スキンアクア トーンアップUV",
-        "amazon": "https://www.amazon.co.jp/dp/B07BPLJFLK?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B079LNBJLP?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "ビオレ": {
-        "name": "ビオレ UV アクア リッチ ウォータリーエッセンス",
-        "amazon": "https://www.amazon.co.jp/dp/B00PQNUIWY?tag=rikocosmelab-22",
+        "name": "ビオレ おうちdeエステ 肌をなめらかにするミルクジェル",
+        "amazon": "https://www.amazon.co.jp/dp/B0759HMBJK?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "日焼け止め": {
         "name": "日焼け止め全般",
-        "amazon": "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/h5b4am",
     },
     # ── 美顔器・美容機器 ────────────────────────────
@@ -109,17 +119,17 @@ PRODUCT_AFFILIATE_URLS = {
     },
     "ヤーマン": {
         "name": "ヤーマン フォトプラスEX",
-        "amazon": "https://www.amazon.co.jp/dp/B08KGVHTS3?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B06XW7CJ1X?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "パナソニック": {
         "name": "パナソニック 美顔器 イオンエフェクター",
-        "amazon": "https://www.amazon.co.jp/dp/B09TVHF7LY?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B0861FWQ8Q?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "イオンエフェクター": {
         "name": "パナソニック 美顔器 イオンエフェクター",
-        "amazon": "https://www.amazon.co.jp/dp/B09TVHF7LY?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B0861FWQ8Q?tag=rikocosmelab-22",
         "rakuten": "",
     },
     # ── ヘアケア ────────────────────────────────────
@@ -144,8 +154,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "",
     },
     "シュワルツコフ": {
-        "name": "シュワルツコフ グロッシーシャイン",
-        "amazon": "https://www.amazon.co.jp/dp/B07MQ6FWZL?tag=rikocosmelab-22",
+        "name": "シュワルツコフ ユイルアローム ラブ シャンプー",
+        "amazon": "https://www.amazon.co.jp/dp/B07SL52MDY?tag=rikocosmelab-22",
         "rakuten": "",
     },
     # ── メイク ──────────────────────────────────────
@@ -156,17 +166,17 @@ PRODUCT_AFFILIATE_URLS = {
     },
     "セザンヌ": {
         "name": "セザンヌ パールグロウハイライト",
-        "amazon": "https://www.amazon.co.jp/dp/B082YF3RGM?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B07H97J6TP?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "CEZANNE": {
         "name": "CEZANNE ウォータリーティントリップ",
-        "amazon": "https://www.amazon.co.jp/dp/B092KCNLPB?tag=rikocosmelab-22",
+        "amazon": "https://www.amazon.co.jp/dp/B08TTJL78F?tag=rikocosmelab-22",
         "rakuten": "",
     },
 }
 
-_DEFAULT_URL = "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22"  # フォールバック（アネッサAmazon）
+_DEFAULT_URL = "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22"  # フォールバック（アネッサAmazon）
 
 USED_URLS_PATH = Path("/tmp/used_reply_urls.json")
 _USED_URL_TTL_HOURS = 24
@@ -377,8 +387,10 @@ def run_pipeline(dry_run: bool = False):
         print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
         if slack_notify:
             _hook = best_post["text"].split("\n")[0][:40]
+            _thread_post_id = thread_result.get("post_ids", [None])[0] if thread_result else None
+            _threads_link = f"\n🔗 https://www.threads.net/t/{_thread_post_id}" if _thread_post_id else ""
             slack_notify("success",
-                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n{_aff_url}"
+                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n🛒 {_aff_url}{_threads_link}"
             )
         print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
         return
@@ -399,8 +411,9 @@ def run_pipeline(dry_run: bool = False):
         print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
         if slack_notify:
             _hook = best_post["text"].split("\n")[0][:40]
+            _threads_link = f"\n🔗 https://www.threads.net/t/{post_id}" if post_id else ""
             slack_notify("success",
-                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n{_aff_url}"
+                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n🛒 {_aff_url}{_threads_link}"
             )
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
