@@ -251,22 +251,23 @@ for _key, _info in PRODUCT_AFFILIATE_URLS.items():
         UNIQUE_PRODUCTS.append({"product_name": _info["name"], "keyword": _key, "amazon": _amazon})
 del _seen_asins, _key, _info, _amazon, _asin
 
-CYCLE_COUNTER_PATH = Path("data/cycle_counter.json")
+CYCLE_COUNTER_PATH = Path("/tmp/cycle_counter.json")
 
 def read_cycle_counter() -> int:
+    """Renderエフェメラル対策: /tmpが消えた場合は時刻ベースにフォールバック"""
     if CYCLE_COUNTER_PATH.exists():
         try:
-            return json.loads(CYCLE_COUNTER_PATH.read_text(encoding="utf-8")).get("index", 0)
+            data = json.loads(CYCLE_COUNTER_PATH.read_text(encoding="utf-8"))
+            return data.get("index", 0)
         except Exception:
-            return 0
-    return 0
+            pass
+    # /tmpが消えた場合: UTC時刻の4時間ブロックでローテーション
+    import time
+    return (int(time.time()) // (3600 * 4)) % len(UNIQUE_PRODUCTS)
 
 def write_cycle_counter(n: int):
     CYCLE_COUNTER_PATH.parent.mkdir(parents=True, exist_ok=True)
     CYCLE_COUNTER_PATH.write_text(json.dumps({"index": n}, ensure_ascii=False), encoding="utf-8")
-
-USED_URLS_PATH = Path("/tmp/used_reply_urls.json")
-_USED_URL_TTL_HOURS = 24
 
 
 def get_affiliate_url(product_name: str, post_count: int = 0) -> str:
