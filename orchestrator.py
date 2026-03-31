@@ -186,7 +186,7 @@ for _key, _info in PRODUCT_AFFILIATE_URLS.items():
     _asin = _amazon.split("/dp/")[1].split("?")[0] if "/dp/" in _amazon else ""
     if _asin and _asin not in _seen_asins:
         _seen_asins.add(_asin)
-        UNIQUE_PRODUCTS.append({"product_name": _info["name"], "keyword": _key})
+        UNIQUE_PRODUCTS.append({"product_name": _info["name"], "keyword": _key, "amazon": _amazon})
 del _seen_asins, _key, _info, _amazon, _asin
 
 CYCLE_COUNTER_PATH = Path("data/cycle_counter.json")
@@ -357,7 +357,11 @@ def run_pipeline(dry_run: bool = False):
     cycle_idx = read_cycle_counter()
     product = UNIQUE_PRODUCTS[cycle_idx % len(UNIQUE_PRODUCTS)]
     write_cycle_counter(cycle_idx + 1)
-    print(f"\n[Orchestrator] サイクル選択: 「{product['product_name']}」（{cycle_idx % len(UNIQUE_PRODUCTS) + 1}/{len(UNIQUE_PRODUCTS)}）")
+    # _pname と _aff_url はサイクル選択した product から直接取得（writerの結果に依存しない）
+    _pname = product["product_name"]
+    _aff_url = product["amazon"] or _DEFAULT_URL
+    print(f"\n[Orchestrator] サイクル選択: 「{_pname}」（{cycle_idx % len(UNIQUE_PRODUCTS) + 1}/{len(UNIQUE_PRODUCTS)}）")
+    print(f"[Orchestrator] アフィリエイトURL: {_aff_url}")
 
     hook_result = run_with_timeout(
         f"HookOptimizer({product['product_name']})",
@@ -382,11 +386,8 @@ def run_pipeline(dry_run: bool = False):
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
 
-    _pname = best_post.get("product", {}).get("product_name", "美容商品")
-
     if not dry_run and random.random() < 0.3:
         print("[Orchestrator] スレッド投稿モード（30%抽選）")
-        _aff_url = get_fresh_affiliate_url(_pname)
         _save_used_url(_aff_url)
         thread_result = thread_poster.post_thread(
             product_name=_pname,
@@ -409,7 +410,6 @@ def run_pipeline(dry_run: bool = False):
     write_counter(counter + 1)
 
     post_id = post_result.get("post_id")
-    _aff_url = get_fresh_affiliate_url(_pname)
     reply_text = f"🛒 商品詳細はこちら👇\n{_aff_url}\n#PR"
 
     # buzz型・link型どちらも毎回アフィリエイトリプライを付ける
