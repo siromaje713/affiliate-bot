@@ -53,9 +53,10 @@ def strip_links(text: str) -> str:
 def post_now(post_data: dict) -> dict:
     """即時投稿して結果を返す"""
     text = strip_links(post_data["text"])
-    print(f"[Poster] 投稿中: {text[:30]}...")
+    image_url = post_data.get("image_url")
+    print(f"[Poster] 投稿中({'画像付き' if image_url else 'テキスト'}): {text[:30]}...")
 
-    container_id = threads_api.create_post_container(text)
+    container_id = threads_api.create_post_container(text, image_url=image_url)
     time.sleep(3)  # Meta推奨: コンテナ作成後3秒待つ
     post_id = threads_api.publish_post(container_id)
 

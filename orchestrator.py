@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from agents import writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
 from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
+from utils import threads_api
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 try:
     from line_notify import notify as line_notify
@@ -385,6 +386,16 @@ def run_pipeline(dry_run: bool = False):
 
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
+
+    # Amazon商品画像を取得してbest_postに添付
+    _asin_match = re.search(r'/dp/([A-Z0-9]{10})', _aff_url)
+    if _asin_match:
+        _image_url = threads_api.get_amazon_image_url(_asin_match.group(1))
+        if _image_url:
+            best_post["image_url"] = _image_url
+            print(f"[Orchestrator] 商品画像取得: {_image_url[:60]}...")
+        else:
+            print("[Orchestrator] 商品画像取得失敗 → テキスト投稿")
 
     if not dry_run and random.random() < 0.3:
         print("[Orchestrator] スレッド投稿モード（30%抽選）")

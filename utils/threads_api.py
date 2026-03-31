@@ -1,5 +1,6 @@
 """Threads API ラッパー"""
 import os
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -22,17 +23,39 @@ def get_user_id() -> str:
     return user_id
 
 
-def create_post_container(text: str) -> str:
-    """投稿コンテナを作成してIDを返す"""
+def get_amazon_image_url(asin: str) -> str | None:
+    """Amazon商品ページのdata-a-dynamic-imageからメイン画像URLを取得する"""
+    try:
+        resp = requests.get(
+            f"https://www.amazon.co.jp/dp/{asin}",
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+            timeout=10,
+        )
+        match = re.search(
+            r'data-a-dynamic-image="\{&quot;(https://m\.media-amazon\.com/images/I/[^&]+)&quot;',
+            resp.text,
+        )
+        if match:
+            return match.group(1)
+    except Exception as e:
+        print(f"[ThreadsAPI] Amazon画像取得失敗 {asin}: {e}")
+    return None
+
+
+def create_post_container(text: str, image_url: str = None) -> str:
+    """投稿コンテナを作成してIDを返す。image_urlがあれば画像投稿になる"""
     user_id = get_user_id()
     token = get_token()
+    params = {
+        "media_type": "IMAGE" if image_url else "TEXT",
+        "text": text,
+        "access_token": token,
+    }
+    if image_url:
+        params["image_url"] = image_url
     resp = requests.post(
         f"{BASE_URL}/{user_id}/threads",
-        params={
-            "media_type": "TEXT",
-            "text": text,
-            "access_token": token,
-        },
+        params=params,
     )
     resp.raise_for_status()
     return resp.json()["id"]

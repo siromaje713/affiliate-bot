@@ -25,9 +25,40 @@ def _get_user_id() -> str:
     return os.environ["THREADS_USER_ID"]
 
 
+def _lookup_user_id(username: str) -> str | None:
+    """Threads検索APIでユーザー名から数値IDを取得する"""
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/search",
+            params={
+                "q": username,
+                "type": "USER",
+                "fields": "id,username",
+                "access_token": _get_token(),
+            },
+        )
+        resp.raise_for_status()
+        for u in resp.json().get("data", []):
+            if u.get("username", "").lower() == username.lower():
+                print(f"[EngageAgent] {username} → ID: {u['id']}")
+                return u["id"]
+    except Exception as e:
+        print(f"[EngageAgent] ユーザーID検索失敗 {username}: {e}")
+    return None
+
+
 def _get_benchmark_ids() -> list:
-    ids = os.getenv("BENCHMARK_ACCOUNT_IDS", "")
-    return [i.strip() for i in ids.split(",") if i.strip()]
+    """BENCHMARK_ACCOUNT_IDSから数値IDを取得する。ユーザー名は自動でID変換する"""
+    raw = os.getenv("BENCHMARK_ACCOUNT_IDS", "")
+    ids = []
+    for entry in [e.strip() for e in raw.split(",") if e.strip()]:
+        if entry.isdigit():
+            ids.append(entry)
+        else:
+            uid = _lookup_user_id(entry)
+            if uid:
+                ids.append(uid)
+    return ids
 
 
 def _load_engaged_ids() -> set:
