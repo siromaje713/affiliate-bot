@@ -23,7 +23,7 @@ def get_user_id() -> str:
     return user_id
 
 
-def get_amazon_image_url(asin: str) -> str | None:
+def get_amazon_image_url(asin: str):
     """Amazon商品ページのdata-a-dynamic-imageからメイン画像URLを取得する"""
     try:
         resp = requests.get(
