@@ -25,6 +25,22 @@ except ImportError:
 # アフィリエイトURL辞書（楽天 + Amazon、post_countで交互切り替え）
 # Amazonリンク形式: https://www.amazon.co.jp/dp/[ASIN]?tag=rikocosmelab-22
 PRODUCT_AFFILIATE_URLS = {
+    # ── 洗顔・クレンジング ──────────────────────────
+    "キュレル泡洗顔": {
+        "name": "キュレル 潤浸保湿 泡洗顔料",
+        "amazon": "https://www.amazon.co.jp/dp/B0096HZBGG?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "バルクオム": {
+        "name": "BULK HOMME THE FACE WASH",
+        "amazon": "https://www.amazon.co.jp/dp/B00O2P9ALO?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ファンケル": {
+        "name": "ファンケル マイルドクレンジングオイル",
+        "amazon": "https://www.amazon.co.jp/dp/B0773Q4M66?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
     # ── スキンケア ──────────────────────────────────
     "アテニア": {
         "name": "アテニア スキンクリア クレンズ オイル",
@@ -84,6 +100,26 @@ PRODUCT_AFFILIATE_URLS = {
     "イニスフリー": {
         "name": "イニスフリー ノーセバム ミネラルパウダー",
         "amazon": "https://www.amazon.co.jp/dp/B0C851WQFJ?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ナチュリエ": {
+        "name": "ナチュリエ ハトムギ化粧水 スキンコンディショナー",
+        "amazon": "https://www.amazon.co.jp/dp/B000FQP2YS?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "無印良品": {
+        "name": "無印良品 敏感肌用化粧水 高保湿タイプ",
+        "amazon": "https://www.amazon.co.jp/dp/B0CL3T2D3V?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "オバジ": {
+        "name": "Obagi C25セラム Neo",
+        "amazon": "https://www.amazon.co.jp/dp/B08TJGNB8R?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "ナールス": {
+        "name": "ナールス ユニバ フェイスクリーム",
+        "amazon": "https://www.amazon.co.jp/dp/B07PQQFR2B?tag=rikocosmelab-22",
         "rakuten": "",
     },
     # ── 日焼け止め・UVケア ──────────────────────────
@@ -183,6 +219,16 @@ PRODUCT_AFFILIATE_URLS = {
     "フェイスアイパレット": {
         "name": "CEZANNE フェイスアイパレット",
         "amazon": "https://www.amazon.co.jp/dp/B0BQKCT28X?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "CEZANNEベース": {
+        "name": "CEZANNE UV ウルトラフィットベースEX",
+        "amazon": "https://www.amazon.co.jp/dp/B08FHPNP32?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "excel": {
+        "name": "excel スキニーリッチシャドウ SR01",
+        "amazon": "https://www.amazon.co.jp/dp/B015FG6RXM?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "romand": {
