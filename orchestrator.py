@@ -494,7 +494,23 @@ def run_engage():
     print(f"[Engage] {len(results)}件完了")
 
 
+def _check_token_expiry():
+    """THREADS_TOKEN_EXPIRES_ATが7日以内ならSlack警告を送る"""
+    expires_at = os.environ.get("THREADS_TOKEN_EXPIRES_AT", "")
+    if not expires_at:
+        return
+    try:
+        expiry = datetime.strptime(expires_at, "%Y-%m-%d")
+        days_left = (expiry - datetime.now()).days
+        if days_left <= 7 and slack_notify:
+            slack_notify("error", f"⚠️ トークン期限7日以内（残り{days_left}日）\nTHREADS_ACCESS_TOKENを更新してください")
+            print(f"[Orchestrator] ⚠️ トークン期限警告: 残り{days_left}日")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
+    _check_token_expiry()
     parser = argparse.ArgumentParser(description="affiliate-bot オーケストレーター")
     parser.add_argument("--mode", choices=["post", "analytics", "reply", "research", "insights", "engage"], default="post")
     parser.add_argument("--dry-run", action="store_true", help="実際には投稿しない")

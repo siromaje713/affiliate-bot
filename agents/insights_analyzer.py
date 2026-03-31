@@ -136,7 +136,7 @@ def fetch_benchmark_patterns() -> list:
         try:
             resp = requests.get(
                 f"https://graph.threads.net/v1.0/{user_id}/threads",
-                params={"fields": "id,text,like_count,timestamp", "limit": 10, "access_token": token},
+                params={"fields": "id,text,like_count,timestamp", "limit": 30, "access_token": token},
                 timeout=10,
             )
             resp.raise_for_status()
@@ -152,6 +152,7 @@ def fetch_benchmark_patterns() -> list:
                         "like_count": like_count,
                         "hook_text": text[:50],
                         "full_text": text,
+                        "post_date": p.get("timestamp", ""),
                     })
                     hit += 1
             print(f"[InsightsAnalyzer] {account}: {hit}件（いいね{BENCHMARK_LIKE_THRESHOLD}+）取得")
