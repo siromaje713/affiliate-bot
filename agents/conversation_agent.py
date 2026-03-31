@@ -20,7 +20,7 @@ def _get_token() -> str:
 
 
 def _get_user_id() -> str:
-    return os.environ["THREADS_USER_ID"]
+    return os.environ.get("THREADS_USER_ID", "")
 
 
 def _load_replied_ids() -> set:
