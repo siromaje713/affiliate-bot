@@ -60,6 +60,16 @@ def _get_own_recent_posts() -> list:
     return resp.json().get("data", [])
 
 
+def _get_own_username() -> str:
+    """自分のusernameを取得する"""
+    resp = requests.get(
+        f"{BASE_URL}/me",
+        params={"fields": "username", "access_token": _get_token()},
+    )
+    resp.raise_for_status()
+    return resp.json().get("username", "")
+
+
 def _get_replies(post_id: str) -> list:
     """投稿についたリプライを取得する"""
     resp = requests.get(
@@ -122,6 +132,7 @@ def _post_reply(post_id: str, text: str) -> str:
 def run_conversation() -> dict:
     """直近24hの投稿リプに最大3件ずつ返信する"""
     replied_ids = _load_replied_ids()
+    own_username = _get_own_username()
     total_replied = 0
 
     posts = _get_own_recent_posts()
@@ -132,7 +143,11 @@ def run_conversation() -> dict:
         post_text = post.get("text", "")
         replies = _get_replies(post_id)
 
-        new_replies = [r for r in replies if r["id"] not in replied_ids]
+        # 自分以外のユーザーからのリプライのみ対象
+        new_replies = [
+            r for r in replies
+            if r["id"] not in replied_ids and r.get("username") != own_username
+        ]
         new_replies = new_replies[:MAX_REPLIES_PER_POST]
 
         if not new_replies:
