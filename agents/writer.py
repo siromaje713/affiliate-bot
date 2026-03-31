@@ -216,6 +216,7 @@ def generate_patterns(
     seasonal_hook = product.get("seasonal_hook", "")
     urgency = product.get("urgency", "")
     hook_angle = product.get("hook_angle", "")
+    _target_pain = product.get("target_pain", "肌悩みを抱える方")
 
     # 毎回ランダムに6種のバズパターンを選択（マンネリ防止）
     pattern_examples = get_pattern_examples()
@@ -239,7 +240,7 @@ def generate_patterns(
 『[{product['product_name']}に関連する常識を破る一言]』って。これ心当たりない？」
 
 パターン2【悩み直撃型】
-「私[{product['target_pain']}]人なんだけど、{product['product_name']}のおかげで[解決した体験]。
+「私[{_target_pain}]人なんだけど、{product['product_name']}のおかげで[解決した体験]。
 同じ悩みの人いる？」
 
 パターン3【話題便乗型】
@@ -251,7 +252,7 @@ def generate_patterns(
 みんなちゃんと調べてる？」
 
 パターン5【断言命令型】
-「[{product['target_pain']}]の人、全員これ見て。
+「[{_target_pain}]の人、全員これ見て。
 {product['product_name']}が[衝撃的な理由]で最強なの、知らなきゃ損！」
 
 パターン6【DM要請型】
@@ -286,7 +287,7 @@ def generate_patterns(
         prompt = f"""Threadsでバズる投稿を6パターン生成してください。
 
 商品：{product['product_name']}
-読者の悩み：{product['target_pain']}
+読者の悩み：{_target_pain}
 {seasonal_info}{buzz_guide}{win_section}{competitor_section}
 
 生成ルール：
@@ -305,7 +306,7 @@ def generate_patterns(
 
 商品名：{product['product_name']}
 訴求角度：{hook_angle}
-読者の悩み：{product['target_pain']}
+読者の悩み：{_target_pain}
 {seasonal_info}{buzz_guide}{win_section}{competitor_section}
 
 生成ルール：

@@ -50,11 +50,13 @@ def generate_hooks(product: dict, buzz_patterns) -> list:
         if examples
     ]) if items else "（パターンなし）"
 
+    _hook_angle = product.get("hook_angle", product["product_name"] + "の訴求")
+    _target_pain = product.get("target_pain", "肌悩みを抱える方")
     prompt = f"""スレッズ美容投稿の冒頭1行（フック）を4パターン生成してください。
 
 商品：{product['product_name']}
-訴求角度：{product['hook_angle']}
-読者の悩み：{product['target_pain']}
+訴求角度：{_hook_angle}
+読者の悩み：{_target_pain}
 
 参考バズパターン（10万インプ超え実績）：
 {pattern_examples}
