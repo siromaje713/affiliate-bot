@@ -1,4 +1,4 @@
-"""インサイト分析エージェント：自分の投稿データから勝ちパターンを抽出"""
+"""インサイト分析エージェント：自分の投稿データとベンチマークアカウントから勝ちパターンを抽出"""
 import json
 import os
 import requests
@@ -10,6 +10,7 @@ load_dotenv()
 
 CACHE_PATH = Path(__file__).parent / "cache" / "own_insights.json"
 CACHE_TTL_HOURS = 6
+BENCHMARK_LIKE_THRESHOLD = 100
 
 
 def _is_cache_valid() -> bool:
@@ -87,11 +88,75 @@ def run() -> list:
     for p in win_patterns:
         print(f"  ❤️ {p['like_count']} 「{p['text'][:40]}...」")
 
-    # 勝ちパターンをwriter.pyが読めるJSONに書き出す
-    import json as _json
+    benchmark_patterns = fetch_benchmark_patterns()
+
     _wp_path = Path(__file__).parent / "cache" / "winning_patterns.json"
     _wp_path.parent.mkdir(exist_ok=True)
+    all_patterns = win_patterns[:5] + benchmark_patterns
     with open(_wp_path, "w", encoding="utf-8") as f:
-        _json.dump(win_patterns[:5], f, ensure_ascii=False, indent=2)
-    print(f"[InsightsAnalyzer] winning_patterns.json に {min(len(win_patterns),5)}件書き出し完了")
+        json.dump(all_patterns, f, ensure_ascii=False, indent=2)
+    print(f"[InsightsAnalyzer] winning_patterns.json に 自分{min(len(win_patterns),5)}件+ベンチマーク{len(benchmark_patterns)}件 書き出し完了")
     return win_patterns
+
+
+def _lookup_user_id(username: str, token: str) -> str:
+    """ユーザー名から数値IDを取得する"""
+    try:
+        resp = requests.get(
+            "https://graph.threads.net/v1.0/search",
+            params={"q": username, "type": "USER", "fields": "id,username", "access_token": token},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        for u in resp.json().get("data", []):
+            if u.get("username", "").lower() == username.lower():
+                return u["id"]
+    except Exception as e:
+        print(f"[InsightsAnalyzer] ユーザーID検索失敗 {username}: {e}")
+    return ""
+
+
+def fetch_benchmark_patterns() -> list:
+    """BENCHMARK_ACCOUNT_IDSのアカウントからいいね100超え投稿を取得する"""
+    token = os.environ.get("THREADS_ACCESS_TOKEN")
+    if not token:
+        return []
+
+    raw = os.getenv("BENCHMARK_ACCOUNT_IDS", "")
+    accounts = [e.strip() for e in raw.split(",") if e.strip()]
+    if not accounts:
+        return []
+
+    results = []
+    for account in accounts:
+        user_id = account if account.isdigit() else _lookup_user_id(account, token)
+        if not user_id:
+            print(f"[InsightsAnalyzer] {account}: ID取得失敗 → スキップ")
+            continue
+        try:
+            resp = requests.get(
+                f"https://graph.threads.net/v1.0/{user_id}/threads",
+                params={"fields": "id,text,like_count,timestamp", "limit": 10, "access_token": token},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            posts = resp.json().get("data", [])
+            hit = 0
+            for p in posts:
+                text = p.get("text", "")
+                like_count = p.get("like_count", 0)
+                if text and like_count >= BENCHMARK_LIKE_THRESHOLD:
+                    results.append({
+                        "source": "benchmark",
+                        "account": account,
+                        "like_count": like_count,
+                        "hook_text": text[:50],
+                        "full_text": text,
+                    })
+                    hit += 1
+            print(f"[InsightsAnalyzer] {account}: {hit}件（いいね{BENCHMARK_LIKE_THRESHOLD}+）取得")
+        except Exception as e:
+            print(f"[InsightsAnalyzer] {account}: 取得失敗 {e}")
+
+    results.sort(key=lambda x: x["like_count"], reverse=True)
+    return results
