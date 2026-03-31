@@ -3,3 +3,4 @@ pytrends
 requests
 anthropic
 beautifulsoup4
+playwright
