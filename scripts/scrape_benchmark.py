@@ -1,8 +1,8 @@
 """ベンチマークアカウントのThreadsページをPlaywrightでスクレイプして
-直近1週間のバズ投稿をwinning_patterns.jsonに保存する
+直近N日のバズ投稿をwinning_patterns.jsonに保存する
 
 使い方:
-  python3 scripts/scrape_benchmark.py [--accounts a,b,c] [--days 7] [--limit 200]
+  python3 scripts/scrape_benchmark.py [--accounts a,b,c] [--days 7] [--limit 50]
 """
 import argparse
 import json
@@ -18,6 +18,48 @@ from dotenv import load_dotenv
 load_dotenv()
 
 WINNING_PATTERNS_PATH = Path(__file__).parent.parent / "agents" / "cache" / "winning_patterns.json"
+
+_EXTRACT_JS = """
+() => {
+    const posts = [];
+    const times = document.querySelectorAll('time[datetime]');
+    times.forEach(t => {
+        let container = t;
+        for (let i = 0; i < 15; i++) {
+            container = container.parentElement;
+            if (!container) break;
+            const textSpans = container.querySelectorAll('span[dir=auto]');
+            if (textSpans.length >= 1) {
+                let bestText = '';
+                textSpans.forEach(s => {
+                    if (s.innerText && s.innerText.length > bestText.length) bestText = s.innerText;
+                });
+                let likes = '0';
+                const allSvgs = container.querySelectorAll('svg');
+                allSvgs.forEach(svg => {
+                    const label = svg.getAttribute('aria-label') || '';
+                    if (label.includes('いいね')) {
+                        const btn = svg.closest('div') || svg.parentElement;
+                        if (btn) {
+                            btn.querySelectorAll('span').forEach(s => {
+                                const txt = (s.innerText || '').trim();
+                                if (txt && /^[0-9][0-9,\\.]*[KkMm万千]?$/.test(txt)) {
+                                    likes = txt;
+                                }
+                            });
+                        }
+                    }
+                });
+                if (bestText.length > 10) {
+                    posts.push({text: bestText.substring(0, 300), likes, datetime: t.getAttribute('datetime')});
+                    break;
+                }
+            }
+        }
+    });
+    return posts;
+}
+"""
 
 
 def _get_accounts() -> list:
@@ -42,7 +84,6 @@ def _save_patterns(patterns: list):
 
 
 def _parse_like_count(text: str) -> int:
-    """「1,234」「1.2K」「1.2万」などをint変換"""
     text = text.strip().replace(",", "").replace(" ", "")
     if not text or text == "0":
         return 0
@@ -52,9 +93,9 @@ def _parse_like_count(text: str) -> int:
             return 0
         num = float(m.group(1))
         suffix = m.group(2).lower()
-        if suffix in ("k",):
+        if suffix == "k":
             num *= 1000
-        elif suffix in ("m",):
+        elif suffix == "m":
             num *= 1_000_000
         elif suffix == "万":
             num *= 10000
@@ -65,22 +106,8 @@ def _parse_like_count(text: str) -> int:
         return 0
 
 
-def _parse_date(ts: str) -> str:
-    """datetimeタグのdatetime属性やテキストをISO形式に変換"""
-    if not ts:
-        return ""
-    try:
-        # "2024-03-25T12:34:56.000Z" 形式
-        if "T" in ts:
-            return ts
-        return ts
-    except Exception:
-        return ts
-
-
 def scrape_account(page, account: str, days: int, scroll_limit: int) -> list:
-    """1アカウントをスクレイプして投稿リストを返す"""
-    url = f"https://www.threads.net/@{account}"
+    url = f"https://www.threads.com/@{account}"
     print(f"[Scraper] {account}: {url} を開いています...")
 
     try:
@@ -89,112 +116,36 @@ def scrape_account(page, account: str, days: int, scroll_limit: int) -> list:
         print(f"[Scraper] {account}: ページ読み込み失敗 → {e}")
         return []
 
-    # ログイン不要のコンテンツが表示されるまで待機
-    time.sleep(3)
+    time.sleep(4)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     results = []
+    seen_texts = set()
     scroll_count = 0
-    last_count = 0
     stall_count = 0
+    last_count = 0
+    hit_old_post = False
 
-    while scroll_count < scroll_limit:
-        # 投稿要素を取得（複数のセレクタを試す）
-        posts_data = page.evaluate("""
-        () => {
-            const results = [];
+    while scroll_count < scroll_limit and not hit_old_post:
+        posts_data = page.evaluate(_EXTRACT_JS)
 
-            // article要素から投稿を取得
-            const articles = document.querySelectorAll('article');
-            articles.forEach(article => {
-                // テキスト取得
-                let text = '';
-                const textSelectors = [
-                    '[data-pressable-container] span',
-                    'span[dir="auto"]',
-                    'div[data-lexical-editor] span',
-                ];
-                for (const sel of textSelectors) {
-                    const el = article.querySelector(sel);
-                    if (el && el.innerText && el.innerText.length > 10) {
-                        text = el.innerText.trim();
-                        break;
-                    }
-                }
-
-                // いいね数取得
-                let likes = '';
-                const likeSelectors = [
-                    'span[title]',
-                    'svg[aria-label*="like"] + span',
-                    'svg[aria-label*="いいね"] + span',
-                    'div[role="button"] span',
-                ];
-                // aria-labelにlikeやいいねを含む要素の近くのspan
-                const svgs = article.querySelectorAll('svg');
-                svgs.forEach(svg => {
-                    const label = (svg.getAttribute('aria-label') || '').toLowerCase();
-                    if (label.includes('like') || label.includes('いいね')) {
-                        const parent = svg.closest('div[role="button"]') || svg.parentElement;
-                        if (parent) {
-                            const span = parent.querySelector('span');
-                            if (span && span.innerText) {
-                                likes = span.innerText.trim();
-                            }
-                        }
-                    }
-                });
-
-                // 日時取得
-                let timestamp = '';
-                const timeEl = article.querySelector('time');
-                if (timeEl) {
-                    timestamp = timeEl.getAttribute('datetime') || timeEl.innerText || '';
-                }
-
-                if (text && text.length > 5) {
-                    results.push({ text, likes, timestamp });
-                }
-            });
-
-            // articleがない場合、divベースで試みる
-            if (results.length === 0) {
-                const divPosts = document.querySelectorAll('div[class*="post"], div[class*="thread"]');
-                divPosts.forEach(div => {
-                    const textEl = div.querySelector('span[dir="auto"]');
-                    const timeEl = div.querySelector('time');
-                    if (textEl && textEl.innerText.length > 5) {
-                        results.push({
-                            text: textEl.innerText.trim(),
-                            likes: '',
-                            timestamp: timeEl ? (timeEl.getAttribute('datetime') || '') : '',
-                        });
-                    }
-                });
-            }
-
-            return results;
-        }
-        """)
-
-        # 新しい投稿をフィルタリングして追加
-        seen_texts = {r["full_text"] for r in results}
-        for p in posts_data:
-            text = p.get("text", "").strip()
+        for item in posts_data:
+            text = item.get("text", "").strip()
+            ts = item.get("datetime", "")
             if not text or text in seen_texts:
                 continue
-            like_count = _parse_like_count(p.get("likes", ""))
-            ts = _parse_date(p.get("timestamp", ""))
 
-            # 期間フィルタ（timestampがあれば）
+            # 期間フィルタ
             if ts:
                 try:
                     dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     if dt < cutoff:
+                        hit_old_post = True
                         continue
                 except Exception:
                     pass
 
+            like_count = _parse_like_count(item.get("likes", "0"))
             seen_texts.add(text)
             results.append({
                 "source": "scrape",
@@ -207,7 +158,6 @@ def scrape_account(page, account: str, days: int, scroll_limit: int) -> list:
 
         print(f"[Scraper] {account}: スクロール{scroll_count+1}回目 / 累計{len(results)}件")
 
-        # 変化がなければ打ち切り
         if len(results) == last_count:
             stall_count += 1
             if stall_count >= 3:
@@ -217,9 +167,8 @@ def scrape_account(page, account: str, days: int, scroll_limit: int) -> list:
             stall_count = 0
         last_count = len(results)
 
-        # スクロール
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        time.sleep(2)
+        time.sleep(2.5)
         scroll_count += 1
 
     print(f"[Scraper] {account}: 完了 {len(results)}件取得")
@@ -228,10 +177,10 @@ def scrape_account(page, account: str, days: int, scroll_limit: int) -> list:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--accounts", default="", help="カンマ区切りアカウント名（省略時は.envのBENCHMARK_ACCOUNT_IDS）")
+    parser.add_argument("--accounts", default="", help="カンマ区切りアカウント名")
     parser.add_argument("--days", type=int, default=7, help="直近N日（デフォルト7）")
-    parser.add_argument("--limit", type=int, default=200, help="最大スクロール回数（デフォルト200）")
-    parser.add_argument("--min-likes", type=int, default=0, help="いいね最低数フィルタ（デフォルト0）")
+    parser.add_argument("--limit", type=int, default=50, help="最大スクロール回数（デフォルト50）")
+    parser.add_argument("--min-likes", type=int, default=0, help="いいね最低数フィルタ")
     args = parser.parse_args()
 
     accounts = [a.strip() for a in args.accounts.split(",") if a.strip()] if args.accounts else _get_accounts()
@@ -242,7 +191,7 @@ def main():
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("Playwrightがインストールされていません: pip install playwright && playwright install chromium")
+        print("pip install playwright && playwright install chromium")
         sys.exit(1)
 
     all_new = []
@@ -250,7 +199,7 @@ def main():
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            viewport={"width": 390, "height": 844},  # モバイルサイズ（Threadsはモバイル最適化）
+            viewport={"width": 390, "height": 844},
             locale="ja-JP",
         )
         page = context.new_page()
@@ -264,21 +213,22 @@ def main():
     # いいね数でソート
     all_new.sort(key=lambda x: x["like_count"], reverse=True)
 
-    # いいね数フィルタ
     if args.min_likes > 0:
         all_new = [p for p in all_new if p["like_count"] >= args.min_likes]
 
-    # 既存データと重複除去してマージ（全文一致で判定）
+    # 既存データと重複除去してマージ
     existing = _load_patterns()
     existing_texts = {p.get("full_text", "") for p in existing}
-    merged = existing + [p for p in all_new if p["full_text"] not in existing_texts]
+    new_only = [p for p in all_new if p["full_text"] not in existing_texts]
+    merged = existing + new_only
 
     _save_patterns(merged)
 
-    print(f"\n[Scraper] 完了: 新規{len(all_new)}件追加 / 合計{len(merged)}件")
-    print("\n上位5件:")
-    for i, p in enumerate(all_new[:5], 1):
-        print(f"  {i}. ❤️{p['like_count']} @{p['account']} 「{p['hook_text']}」")
+    print(f"\n[Scraper] 完了: 新規{len(new_only)}件追加 / 合計{len(merged)}件")
+    if all_new:
+        print("\n上位5件:")
+        for i, item in enumerate(all_new[:5], 1):
+            print(f"  {i}. ❤️{item['like_count']} @{item['account']} 「{item['hook_text']}」")
 
 
 if __name__ == "__main__":
