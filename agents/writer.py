@@ -295,7 +295,7 @@ def generate_patterns(
 - {hook_instruction if hook_instruction else '上記7パターンから6つ選んで、各パターンを1投稿ずつ作る'}
 - 商品名「{product['product_name']}」を必ず本文中に1回入れる
 - URLや商品リンク誘導は禁止
-- 必ず質問で締める
+- 投稿の最後に「続きはリプ欄👇」を必ず入れる
 - 感嘆符と絵文字で感情温度を上げる
 
 厳守ルール：
@@ -321,7 +321,7 @@ def generate_patterns(
 - {hook_instruction if hook_instruction else '上記7パターンから6つ選んで、各パターンを1投稿ずつ作る'}
 - 商品名「{product['product_name']}」を必ず本文中に1回入れる（これが最重要）
 - URLや「リンク」「こちら」等の誘導は禁止
-- 必ず質問で締める（「みんなは？」「試した人いる？」等）
+- 投稿の最後に「続きはリプ欄👇」を必ず入れる
 - 感嘆符と絵文字で感情温度を上げる
 - 季節感・数字を入れる
 
