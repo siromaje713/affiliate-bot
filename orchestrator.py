@@ -165,6 +165,11 @@ PRODUCT_AFFILIATE_URLS = {
         "amazon": "https://www.amazon.co.jp/dp/B07B456KKP?tag=rikocosmelab-22",
         "rakuten": "",
     },
+    "マシュマロフィニッシュ": {
+        "name": "CANMAKE マシュマロフィニッシュパウダー",
+        "amazon": "https://www.amazon.co.jp/dp/B001GC6PEY?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
     "セザンヌ": {
         "name": "セザンヌ パールグロウハイライト",
         "amazon": "https://www.amazon.co.jp/dp/B07H97J6TP?tag=rikocosmelab-22",
@@ -173,6 +178,16 @@ PRODUCT_AFFILIATE_URLS = {
     "CEZANNE": {
         "name": "CEZANNE ウォータリーティントリップ",
         "amazon": "https://www.amazon.co.jp/dp/B08TTJL78F?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "フェイスアイパレット": {
+        "name": "CEZANNE フェイスアイパレット",
+        "amazon": "https://www.amazon.co.jp/dp/B0BQKCT28X?tag=rikocosmelab-22",
+        "rakuten": "",
+    },
+    "romand": {
+        "name": "rom&nd ベターザンパレット",
+        "amazon": "https://www.amazon.co.jp/dp/B0C9XLWKFG?tag=rikocosmelab-22",
         "rakuten": "",
     },
 }
