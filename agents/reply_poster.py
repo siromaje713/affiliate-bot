@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Amazon固定（楽天フォールバックは廃止）
-_DEFAULT_AMAZON_URL = "https://www.amazon.co.jp/dp/B0CWM6GZTM?tag=rikocosmelab-22"  # アネッサ
+_DEFAULT_AMAZON_URL = "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22"  # アネッサ
 BASE_URL = "https://graph.threads.net/v1.0"
 COUNTER_PATH = Path("/tmp/reply_count.json")
 REPLY_INTERVAL = 1  # 毎回リプする

@@ -9,7 +9,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime, timedelta
 from pathlib import Path
-from agents import researcher, writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
+from agents import writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
 from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 try:
@@ -36,9 +36,9 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "https://a.r10.to/h8N8Bv",
     },
     "ヒアルロン": {
-        "name": "肌ラボ 極潤ヒアルロン液",
-        "amazon": "https://www.amazon.co.jp/dp/B000FQUGXA?tag=rikocosmelab-22",
-        "rakuten": "https://a.r10.to/h8N8Bv",
+        "name": "LaViness セラミド・ヒアルロン酸配合化粧水",
+        "amazon": "https://www.amazon.co.jp/dp/B08LKDDRDF?tag=rikocosmelab-22",
+        "rakuten": "",
     },
     "ルルルン": {
         "name": "ルルルン フェイスマスク 32枚",
@@ -51,8 +51,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "",
     },
     "CICA": {
-        "name": "VT CICA デイリースージングマスク",
-        "amazon": "https://www.amazon.co.jp/dp/B083X5R6VR?tag=rikocosmelab-22",
+        "name": "PLATINUM LABEL CICAローション ツボクサエキス配合",
+        "amazon": "https://www.amazon.co.jp/dp/B0BZPG5HW8?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "雪肌精": {
@@ -92,8 +92,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "https://a.r10.to/hkWt3Y",
     },
     "ANESSA": {
-        "name": "アネッサ パーフェクトUV スキンケアミルク",
-        "amazon": "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22",
+        "name": "アネッサ パーフェクトUV スキンケアスプレー",
+        "amazon": "https://www.amazon.co.jp/dp/B0CSST7HY7?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/hkWt3Y",
     },
     "スキンアクア": {
@@ -107,8 +107,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "",
     },
     "日焼け止め": {
-        "name": "日焼け止め全般",
-        "amazon": "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22",
+        "name": "ビオレUV アクアリッチ ウォータリーエッセンス",
+        "amazon": "https://www.amazon.co.jp/dp/B07MFX87LV?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/h5b4am",
     },
     # ── 美顔器・美容機器 ────────────────────────────
@@ -128,8 +128,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "",
     },
     "イオンエフェクター": {
-        "name": "パナソニック 美顔器 イオンエフェクター",
-        "amazon": "https://www.amazon.co.jp/dp/B0861FWQ8Q?tag=rikocosmelab-22",
+        "name": "パナソニック 美顔器 イオンエフェクター EH-ST78",
+        "amazon": "https://www.amazon.co.jp/dp/B0861FZVBH?tag=rikocosmelab-22",
         "rakuten": "",
     },
     # ── ヘアケア ────────────────────────────────────
@@ -139,8 +139,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "https://a.r10.to/h8N8vu",
     },
     "オルビス": {
-        "name": "ORBIS エッセンスイン ヘアミルク",
-        "amazon": "https://www.amazon.co.jp/dp/B06X17VVNQ?tag=rikocosmelab-22",
+        "name": "ORBIS リンクルブライトUVプロテクター",
+        "amazon": "https://www.amazon.co.jp/dp/B0BSMSKHHY?tag=rikocosmelab-22",
         "rakuten": "https://a.r10.to/h8N8vu",
     },
     "THE ANSWER": {
@@ -149,8 +149,8 @@ PRODUCT_AFFILIATE_URLS = {
         "rakuten": "",
     },
     "ラメラシャンプー": {
-        "name": "THE ANSWER スーパーラメラシャンプー",
-        "amazon": "https://www.amazon.co.jp/dp/B0DT4WN5D9?tag=rikocosmelab-22",
+        "name": "THE ANSWER EXモイストトリートメント",
+        "amazon": "https://www.amazon.co.jp/dp/B0DTGTG866?tag=rikocosmelab-22",
         "rakuten": "",
     },
     "シュワルツコフ": {
@@ -177,6 +177,31 @@ PRODUCT_AFFILIATE_URLS = {
 }
 
 _DEFAULT_URL = "https://www.amazon.co.jp/dp/B0CSSVF9GQ?tag=rikocosmelab-22"  # フォールバック（アネッサAmazon）
+
+# ユニーク商品リスト（重複ASIN除外・サイクルローテーション用）
+_seen_asins: set = set()
+UNIQUE_PRODUCTS: list = []
+for _key, _info in PRODUCT_AFFILIATE_URLS.items():
+    _amazon = _info.get("amazon", "")
+    _asin = _amazon.split("/dp/")[1].split("?")[0] if "/dp/" in _amazon else ""
+    if _asin and _asin not in _seen_asins:
+        _seen_asins.add(_asin)
+        UNIQUE_PRODUCTS.append({"product_name": _info["name"], "keyword": _key})
+del _seen_asins, _key, _info, _amazon, _asin
+
+CYCLE_COUNTER_PATH = Path("data/cycle_counter.json")
+
+def read_cycle_counter() -> int:
+    if CYCLE_COUNTER_PATH.exists():
+        try:
+            return json.loads(CYCLE_COUNTER_PATH.read_text(encoding="utf-8")).get("index", 0)
+        except Exception:
+            return 0
+    return 0
+
+def write_cycle_counter(n: int):
+    CYCLE_COUNTER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CYCLE_COUNTER_PATH.write_text(json.dumps({"index": n}, ensure_ascii=False), encoding="utf-8")
 
 USED_URLS_PATH = Path("/tmp/used_reply_urls.json")
 _USED_URL_TTL_HOURS = 24
@@ -279,17 +304,6 @@ def run_pipeline(dry_run: bool = False):
     post_type = "buzz" if counter % 3 == 0 else "link"
     print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
 
-    # trends_cacheを強制削除して毎回フレッシュな商品を生成させる
-    trends_cache = Path("data/trends_cache.json")
-    if trends_cache.exists():
-        trends_cache.unlink()
-        print("[Orchestrator] trends_cache.json を削除（強制リフレッシュ）")
-
-    products = run_with_timeout("Researcher", researcher.run, timeout=60, fallback=[])
-    if not products:
-        print("[Orchestrator] 商品アイデアが取得できませんでした")
-        return
-
     buzz_cache = Path("data/buzz_patterns.json")
     buzz_patterns = {}
     if buzz_cache.exists():
@@ -339,15 +353,11 @@ def run_pipeline(dry_run: bool = False):
             pass
 
     best_post = None
-    # 直近使用済み商品を除外してランダム選択（プログラム的フィルタ）
-    last_used = researcher.load_last_used()
-    filtered = [p for p in products if p["product_name"] not in last_used]
-    if not filtered:
-        filtered = products  # 全部使済みならリセット扱い
-        print(f"[Orchestrator] 全商品が使用済みのためリセット")
-    product = random.choice(filtered)
-    print(f"\n[Orchestrator] 選択商品: 「{product['product_name']}」（{len(filtered)}/{len(products)}件から選択）")
-    researcher.record_used(product["product_name"])
+    # サイクル順で商品選択（Renderリセット対策・全商品を順番に1周）
+    cycle_idx = read_cycle_counter()
+    product = UNIQUE_PRODUCTS[cycle_idx % len(UNIQUE_PRODUCTS)]
+    write_cycle_counter(cycle_idx + 1)
+    print(f"\n[Orchestrator] サイクル選択: 「{product['product_name']}」（{cycle_idx % len(UNIQUE_PRODUCTS) + 1}/{len(UNIQUE_PRODUCTS)}）")
 
     hook_result = run_with_timeout(
         f"HookOptimizer({product['product_name']})",
@@ -446,9 +456,21 @@ def run_insights():
     print(f"[Insights] 保存先: agents/cache/own_insights.json")
 
 
+def run_engage():
+    """ベンチマークアカウントの最新投稿に共感リプライ（エンゲージメント強化）"""
+    from agents import engage_agent
+    print("[Engage] エンゲージ開始...")
+    results = engage_agent.run()
+    if slack_notify and results:
+        for r in results:
+            snippet = r["post_text"][:30]
+            slack_notify("success", f"💬 エンゲージ完了\n{snippet}...\nリプ: {r['reply']}")
+    print(f"[Engage] {len(results)}件完了")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="affiliate-bot オーケストレーター")
-    parser.add_argument("--mode", choices=["post", "analytics", "reply", "research", "insights"], default="post")
+    parser.add_argument("--mode", choices=["post", "analytics", "reply", "research", "insights", "engage"], default="post")
     parser.add_argument("--dry-run", action="store_true", help="実際には投稿しない")
     args = parser.parse_args()
     try:
@@ -462,6 +484,8 @@ if __name__ == "__main__":
             run_research()
         elif args.mode == "insights":
             run_insights()
+        elif args.mode == "engage":
+            run_engage()
     except Exception as e:
         import traceback
         print(f"❌ [Orchestrator] エラー発生\n{type(e).__name__}: {str(e)[:200]}")
