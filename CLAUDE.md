@@ -52,6 +52,7 @@
 - PATのworkflowスコープ不足のため.github/workflows/のpushが制限される
 - ベンチマークアカウント（minnabiyou等）は存在しないか非公開のため0件
 - Threadsアクセストークンは60日で期限切れ（要手動更新）
+- Python 3.9非互換の型ヒント（str|None, list[str]等）はRenderでエラーになる → Optional[str]またはアノテーション省略で対応
 
 ## 次にやること
 - RenderダッシュボードでreplyモードのenvにBENCHMARK_ACCOUNT_IDS・GH_PAT追加
