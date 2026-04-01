@@ -1,0 +1,29 @@
+name: orchestrator.py 行数チェック
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-lines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: orchestrator.py の行数チェック
+        run: |
+          FILE="orchestrator.py"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ $FILE が見つかりません"
+            exit 1
+          fi
+          LINE_COUNT=$(wc -l < "$FILE")
+          echo "行数: $LINE_COUNT"
+          if [ "$LINE_COUNT" -lt 500 ]; then
+            echo "❌ 異常検知: $LINE_COUNT 行（500行未満）"
+            echo "GitHub UIの誤編集でファイルが破損した可能性があります。"
+            exit 1
+          fi
+          echo "✅ 正常: $LINE_COUNT 行"
