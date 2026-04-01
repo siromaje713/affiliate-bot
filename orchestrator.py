@@ -270,6 +270,10 @@ def write_cycle_counter(n: int):
     CYCLE_COUNTER_PATH.write_text(json.dumps({"index": n}, ensure_ascii=False), encoding="utf-8")
 
 
+USED_URLS_PATH = Path("/tmp/used_reply_urls.json")
+_USED_URL_TTL_HOURS = 24
+
+
 def get_affiliate_url(product_name: str, post_count: int = 0) -> str:
     """商品名でキーワードマッチ。常にAmazon URLを返す。"""
     for keyword, info in PRODUCT_AFFILIATE_URLS.items():
