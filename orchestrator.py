@@ -494,8 +494,14 @@ def run_pipeline(dry_run: bool = False):
         print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     else:
         _save_used_url(_aff_url)
-        reply_result = reply_poster.run(post_id, dry_run=False, affiliate_url=_aff_url)
-        print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
+        print(f"[Orchestrator] リプライ投稿開始: post_id={post_id}")
+        try:
+            reply_result = reply_poster.run(post_id, dry_run=False, affiliate_url=_aff_url)
+            print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
+        except Exception as _reply_err:
+            print(f"[Orchestrator] リプライ投稿失敗: {_reply_err}")
+            if slack_notify:
+                slack_notify("error", f"❌ リプライ失敗\npost_id={post_id}\n{_reply_err}")
         if slack_notify:
             _hook = best_post["text"].split("\n")[0][:40]
             _threads_link = f"\n🔗 https://www.threads.net/t/{post_id}" if post_id else ""
