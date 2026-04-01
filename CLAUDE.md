@@ -1,80 +1,66 @@
 # プロジェクト概要
-楽天アフィリエイト×スレッズの完全自動投稿システムを構築中。最終目標：月50万円の自動収益化。
+楽天アフィリエイト×スレッズの完全自動投稿システム。最終目標：月50万円の自動収益化。
 
 # アカウント情報
 - スレッズ：@riko_cosme_lab
 - ジャンル：美容全般（スキンケア・美顔器メイン）
-- 楽天アフィリエイト：登録済み
-- Metricool：登録済み・スレッズ連携済み（無料プラン・月20投稿）
+- Amazonアソシエイト：rikocosmelab-22
+- 楽天アフィリエイト：登録済み（一部商品のみ楽天URL設定済み）
 
 # 現在の進捗
-最終更新日：2026-03-29
+最終更新日：2026-04-01
 
 ## 完了済み
-- Claude Code起動・Claude Subconscious導入済み
-- スレッズ @riko_cosme_lab 開設
-- 楽天アフィリエイト登録
-- Metricool連携・3投稿予約済み（3/23 6時・12時・21時）
-- MetaデベロッパーはUnexpected errorで断念→n8nで代替
-- Meta Developer登録完了（アプリID: 707899495683413）
-- n8n起動済み（http://localhost:5678）
-- Threads APIアクセス権限設定済み（threads_basic・threads_content_publish）
+- Threads API連携・投稿・リプライ自動化
+- Renderデプロイ済み（postモードCron×3本 + replyモードCron）
+- マルチエージェントパイプライン稼働中（BuzzAnalyzer→HookOptimizer→Writer→Poster→ReplyPoster）
+- Amazonアフィリエイトリンク自動付与（replyに商品URLを添付）
+- Amazon商品画像取得・Threads画像投稿対応
+- サイクルローテーション商品選択（41商品・ASIN重複除外済み）
+- ベンチマークアカウント共感リプライ（--mode engage）
+- 自投稿へのリプライ自動返信（--mode reply・自分自身へのリプライ除外済み）
+- insights_analyzer：自分の投稿いいね上位5件＋ベンチマークいいね100超えをwinning_patterns.jsonに記録
+- winning_patterns.jsonをGitHubに永続化（github_sync.py経由・Renderリセット対策）
+- Playwright製ベンチマークスクレイパー（scripts/scrape_benchmark.py）
+- 手動ベンチマーク登録スクリプト（scripts/import_benchmark.py）
+- healthcheck.py：最終投稿から5時間超でSlack警告
+- GH_PAT GitHub Secretsに登録済み
+- Slack通知：投稿完了・エラー・トークン期限警告
 
-## 既知の問題・バグ
-- 特記なし（2026-03-29時点でセッションコンテキストなし）
+## 主要ファイル構成
+- `orchestrator.py`：全エージェント統括・587行・商品41種
+- `agents/writer.py`：投稿生成（buzz/link型・トレンドフック・続きはリプ欄👇）
+- `agents/conversation_agent.py`：自投稿リプライ返信
+- `agents/engage_agent.py`：ベンチマーク共感リプライ
+- `agents/insights_analyzer.py`：勝ちパターン収集・GitHub永続化
+- `utils/threads_api.py`：Threads APIラッパー・Amazon画像取得
+- `github_sync.py`：winning_patterns.jsonをGitHubにpush
+- `healthcheck.py`：投稿停止監視
+- `render.yaml`：Renderデプロイ設定（postモード×3 + healthcheck）
+
+## 環境変数（Renderに要設定）
+- ANTHROPIC_API_KEY
+- THREADS_ACCESS_TOKEN（60日期限・THREADS_TOKEN_EXPIRES_ATで期限監視）
+- THREADS_USER_ID：26498495833117828
+- SLACK_WEBHOOK_URL
+- BENCHMARK_ACCOUNT_IDS：popo.biyou,minnabiyou,cosme_mania_official,skincare_otaku_jp
+- GH_PAT（GitHub永続化用）
+- THREADS_TOKEN_EXPIRES_AT：YYYY-MM-DD形式
+
+## 既知の問題・注意点
+- GitHub UIでorchestrator.pyを直接編集するとファイルが壊れる（Claude Code経由で編集すること）
+- PATのworkflowスコープ不足のため.github/workflows/のpushが制限される
+- ベンチマークアカウント（minnabiyou等）は存在しないか非公開のため0件
+- Threadsアクセストークンは60日で期限切れ（要手動更新）
 
 ## 次にやること
-- Threads APIのアクセストークン取得
-- n8nにアクセストークンを設定してThreads連携完了
-- 自動投稿ワークフロー作成
-- Renderにデプロイして24時間稼働
-
-# 重要な設定値
-- Meta アプリID：707899495683413
-- n8n ローカルURL：http://localhost:5678
-- n8n 起動コマンド：`N8N_SECURE_COOKIE=false npx n8n`
+- RenderダッシュボードでreplyモードのenvにBENCHMARK_ACCOUNT_IDS・GH_PAT追加
+- THREADS_TOKEN_EXPIRES_ATをRenderに設定
+- 有効なベンチマークアカウントに差し替え
 
 # Claudeへの必須指示
 - ユーザーが知らなそうなリスク・落とし穴・コスト・制限は聞かれる前に先に指摘する
-- 実行前にこのやり方の問題点を全部列挙してから進む
-- 複数の選択肢がある場合はメリット・デメリットを比較してから推奨する
-
-# やっていい仕事・やってはいけない仕事
-## AIがやっていい仕事
-- 投稿文の生成・改善
-- 楽天アフィリエイトリンクの発行
-- スレッズへの予約投稿
-- 反応データの収集・分析
-- コードの生成・修正
-
-## AIにやらせてはいけない仕事
-- APIキー・アクセストークンをログに出力すること
-- 承認なしに本番環境に自動デプロイすること
-- git push --force
-- rm -rf
-
-# セキュリティ設定
-- APIキー・トークンは必ず.envに保存してGitにコミットしない
-- ローカルで処理してサマリーだけClaudeに返す設計にする
-
-# n8n（自動化ツール）
-- 完全無料・セルフホスト
-- スレッズ・楽天・Claude・LINE等何でも繋げる
-- 起動：N8N_SECURE_COOKIE=false npx n8n
-
-# LINE CRM
-https://github.com/Shudesu/line-harness-oss
-Lステップ無料代替。スレッズで集客→LINE→ステップ配信で自動販売の導線に使う。
-
-# 投稿生成のマルチエージェント設計
-1. リサーチエージェント：売れ筋商品・競合投稿を収集
-2. フックエージェント：冒頭1行を3パターン生成・スコアリング
-3. 本文エージェント：109文字制限で商品訴求を書く
-4. 品質チェックエージェント：訴求力をスコアリング・差し戻し
-5. 投稿エージェント：スレッズに予約投稿・反応データ収集
-
-# Claude Subconscious
-インストール済み。セッション間の記憶を自動引き継ぎ。
-
-【セッション終了コンテキスト】
-{}
+- orchestrator.pyはGitHub UIで直接編集しない（壊れる）
+- git push --force禁止
+- rm -rf禁止
+- APIキー・トークンをログに出力しない
