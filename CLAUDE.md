@@ -37,10 +37,21 @@
 - reply_poster.run()のtry/except追加：リプライ失敗時もSlack通知＋投稿完了通知を送信
 
 ## 2026-04-02 本日の作業
-- アフィリエイトリプライ問題を徹底調査：03-31の全cron実行でリプライ正常動作確認
-- 「リプライなし」の真因：①04-01 05:57投稿はユーザーの手動投稿（ボット無関係）②04-01 10:24投稿はorchestrator.py破損期間のcron実行（既に修復済み）
-- orchestrator.pyにリプライtry/except+Slackエラー通知追加（障害の可視性向上）
-- CLAUDE.mdに「絶対ルール」セクション追加（GitHub UI編集禁止ルールを明文化）
+### 調査・確認
+- Threads APIで直近20件の投稿を取得し `is_reply` / `replies_count` を確認
+- 03-31の全4cron実行（UTC 0/4/8/12）のリプライを個別確認 → **全件アフィリリプライ正常動作**
+- reply_poster.run() をローカルで直接実行 → 正常にリプライ投稿成功
+- Threads APIのreplyエンドポイントを手動テスト → 動作確認
+- Render APIでcronジョブを手動トリガーし動作確認
+
+### 真因の特定
+- 04-01 05:57投稿「スレッズ始めたばかりです」→ ユーザーの手動投稿（ボット無関係）
+- 04-01 10:24投稿（IMAGE・アネッサ）→ orchestrator.py がGitHub UI編集で破損していた期間のcron実行。破損は8523757版から復元済み
+- autopep8 --aggressiveはロジック変更なし（フォーマットのみ）を確認済み
+
+### コード修正
+- `orchestrator.py`：reply_poster.run() にtry/except追加。リプライ失敗時にSlackへエラー内容を通知。投稿完了Slack通知をリプライの成否に関わらず送信するよう変更
+- `CLAUDE.md`：「絶対ルール」セクション追加（GitHub UI編集禁止を明文化）
 
 ## 主要ファイル構成
 - `orchestrator.py`：全エージェント統括・587行・商品41種（洗顔/化粧水/UV/美顔器/ヘアケア/メイク）
@@ -76,10 +87,16 @@
 - postモードのbuildCommandにautopep8 --aggressiveが含まれる（フォーマット変更のみ・ロジック変更なし確認済み）
 - GH_PAT・BENCHMARK_ACCOUNT_IDS・THREADS_TOKEN_EXPIRES_ATはRenderダッシュボードへの追加が必要
 
-## 明日JST 9:00に確認すること
-1. **Slack通知が届いているか**：`✅ 投稿完了` と `🔗 https://www.threads.net/t/...` が含まれているか
-2. **アフィリリプライが付いているか**：Threads上で最新投稿を開き、リプライ欄に `🛒 商品詳細はこちら👇` があるか
-3. **エラー通知が届いていないか**：`❌ リプライ失敗` のSlack通知がないか確認
+## 明日JST 9:00に確認すること（2026-04-03）
+JST 9:00 = UTC 0:00 がpostモードCronの最初のスロット
+
+1. **Slack通知が届いているか**
+   - `✅ 投稿完了` メッセージに `🛒 Amazon URL` と `🔗 https://www.threads.net/t/投稿ID` が含まれているか
+   - `❌ リプライ失敗` の通知が来ていないか
+2. **Threads上でリプライを目視確認**
+   - @riko_cosme_lab の最新投稿を開く
+   - リプライ欄に `🛒 商品詳細はこちら👇` + AmazonアフィリリンクのリプライがあればOK
+3. **問題があれば**：Claude Codeに「CLAUDE.mdを読んで続きをやって」で再開
 
 ## 次のTODO（優先順）
 1. **明日9:00 Slack確認**（上記3点）
