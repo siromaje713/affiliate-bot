@@ -8,7 +8,7 @@
 - 楽天アフィリエイト：登録済み（一部商品のみ楽天URL設定済み）
 
 # 現在の進捗
-最終更新日：2026-04-01
+最終更新日：2026-04-01（夜）
 
 ## 完了済み
 - Threads API連携・投稿・リプライ自動化
@@ -53,6 +53,9 @@
 - ベンチマークアカウント（minnabiyou等）は存在しないか非公開のため0件
 - Threadsアクセストークンは60日で期限切れ（要手動更新）
 - Python 3.9非互換の型ヒント（str|None, list[str]等）はRenderでエラーになる → Optional[str]またはアノテーション省略で対応
+- engage_agent.py の str|None → 修正済み（2026-04-01）
+- replyモードcron直近2回 succeeded・postモードcron最新デプロイ live 確認済み
+- postモードのbuildCommandにautopep8 --aggressiveが含まれる（フォーマットのみ・動作に影響なし）
 
 ## 次にやること
 - RenderダッシュボードでreplyモードのenvにBENCHMARK_ACCOUNT_IDS・GH_PAT追加
