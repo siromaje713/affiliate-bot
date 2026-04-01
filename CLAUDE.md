@@ -14,7 +14,7 @@
 - postモードbuildCommand：`pip install autopep8 -q && autopep8 --in-place --aggressive orchestrator.py && pip install -r requirements.txt`
 
 # 現在の進捗
-最終更新日：2026-04-01
+最終更新日：2026-04-02
 
 ## 完了済み（本日含む）
 - Threads API連携・投稿・リプライ自動化
@@ -72,14 +72,15 @@
 - Python 3.9非互換構文（str|None等）はRenderでエラー → 新規追加時は省略またはOptional[str]を使う
 - postモードのbuildCommandにautopep8 --aggressiveが含まれる（Renderサーバー上でのみ動作・フォーマット変更のみ）
 - replyモードcronの直近2回はsucceeded・postモードcronの最新デプロイはlive（2026-04-01確認）
+- **アフィリエイトリプライ未確認問題（2026-04-02調査）**：Threads APIで直近20件確認→全件`is_reply=False`・`replies_count=0`。APIは正常動作（手動テストでリプライ投稿成功）。Render実行時に`reply_poster.run()`がエラーで失敗していた可能性大。修正済み：try/exceptを追加してエラーをSlackに通知＋投稿完了Slack通知をリプライ失敗時も送信するよう変更。次回Render実行時のSlack通知でエラー内容を確認する。
 
 ## 次のTODO（優先順）
-1. **Renderダッシュボード**でreplyモード・postモード両方に以下の環境変数を追加：
+1. **Renderログ確認**：次回postモードCron実行後（JST 9:00）のSlack通知でリプライエラー内容を確認
+2. **Renderダッシュボード**でreplyモード・postモード両方に以下の環境変数を追加：
    - GH_PAT
    - BENCHMARK_ACCOUNT_IDS
    - THREADS_TOKEN_EXPIRES_AT
-2. **有効なベンチマークアカウント**に差し替え（現在minnabiyou等が0件）
-3. **21時投稿の動作確認**：本日のRenderログをダッシュボードで確認
+3. **有効なベンチマークアカウント**に差し替え（現在minnabiyou等が0件）
 4. **scrape_benchmark.py定期実行**：Renderに--mode scrapeを追加するか検討
 5. **.github/workflows/weekly_research.yml**のcron変更（3日ごと）をGitHub UIまたはworkflowスコープPATでpush
 
