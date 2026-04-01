@@ -72,10 +72,10 @@
 - Python 3.9非互換構文（str|None等）はRenderでエラー → 新規追加時は省略またはOptional[str]を使う
 - postモードのbuildCommandにautopep8 --aggressiveが含まれる（Renderサーバー上でのみ動作・フォーマット変更のみ）
 - replyモードcronの直近2回はsucceeded・postモードcronの最新デプロイはlive（2026-04-01確認）
-- **アフィリエイトリプライ未確認問題（2026-04-02調査）**：Threads APIで直近20件確認→全件`is_reply=False`・`replies_count=0`。APIは正常動作（手動テストでリプライ投稿成功）。Render実行時に`reply_poster.run()`がエラーで失敗していた可能性大。修正済み：try/exceptを追加してエラーをSlackに通知＋投稿完了Slack通知をリプライ失敗時も送信するよう変更。次回Render実行時のSlack通知でエラー内容を確認する。
+- **アフィリエイトリプライ動作確認済み（2026-04-02）**：03-31の全4cron実行（UTC 0/4/8/12）すべてでアフィリリプライが正常に付いていることを確認。04-01の2件無リプライは①手動投稿（ボットではない）②orchestrator.py破損期のcron実行が原因。現在は修復済み。さらにtry/except+Slackエラー通知を追加して障害の可視性を向上。
 
 ## 次のTODO（優先順）
-1. **Renderログ確認**：次回postモードCron実行後（JST 9:00）のSlack通知でリプライエラー内容を確認
+1. **次回cron実行確認**：次回postモードCron実行後（JST 9:00）のSlack通知でリプライが正常に付くか確認
 2. **Renderダッシュボード**でreplyモード・postモード両方に以下の環境変数を追加：
    - GH_PAT
    - BENCHMARK_ACCOUNT_IDS
