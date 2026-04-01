@@ -16,27 +16,31 @@
 # 現在の進捗
 最終更新日：2026-04-02
 
-## 完了済み（本日含む）
+## 完了済み
 - Threads API連携・投稿・リプライ自動化
 - Renderデプロイ済み（postモードCron×4回/日 + replyモードCron×4回/日）
 - マルチエージェントパイプライン稼働中（BuzzAnalyzer→HookOptimizer→Writer→Poster→ReplyPoster）
-- Amazonアフィリエイトリンク自動付与（replyに商品URLを添付）
+- Amazonアフィリエイトリンク自動付与（replyに商品URLを添付）・**03-31の全4cron実行で正常動作確認済み**
 - Amazon商品画像取得・Threads画像投稿対応
 - サイクルローテーション商品選択（41商品・ASIN重複除外済み）
-- ベンチマークアカウント共感リプライ（--mode engage、手動or別cron）
+- ベンチマークアカウント共感リプライ（--mode engage）
 - 自投稿へのリプライ自動返信（--mode reply・自分自身へのリプライ除外済み）
-- insights_analyzer：自分の投稿いいね上位5件＋ベンチマークいいね100超えをwinning_patterns.jsonに記録（直近30投稿・post_dateフィールドあり）
-- winning_patterns.jsonをGitHubに永続化（github_sync.py経由・Renderリセット対策）
-- Playwright製ベンチマークスクレイパー（scripts/scrape_benchmark.py）→ popo.biyouで17件収集確認済み
+- insights_analyzer：いいね上位5件＋ベンチマークいいね100超えをwinning_patterns.jsonに記録・GitHub永続化
+- Playwright製ベンチマークスクレイパー（scripts/scrape_benchmark.py）
 - 手動ベンチマーク登録スクリプト（scripts/import_benchmark.py）
-- healthcheck.py：最終投稿から5時間超でSlack警告（render.yamlに毎時cronあり）
-- GH_PAT：GitHub Secretsに登録済み（workflowスコープ付き・値はRenderにも要設定）
-- Slack通知：投稿完了（🛒URL＋🔗ThreadsURL）・エラー・トークン期限警告
-- writer.py：厳守ルール（ハッシュタグ禁止・続きはリプ欄👇・トレンドフック優先）
-- conversation_agent.py：自分以外のリプライのみ対象（/meで自username取得しフィルタ）
+- healthcheck.py：最終投稿から5時間超でSlack警告
+- Slack通知：投稿完了（🛒URL＋🔗ThreadsURL）・リプライ失敗エラー・トークン期限警告
+- writer.py：ハッシュタグ禁止・続きはリプ欄👇・トレンドフック優先
+- conversation_agent.py：自分以外のリプライのみ対象
 - Python 3.9互換修正：threads_api.py・engage_agent.py の str|None → 省略済み
-- orchestrator.py：GitHub UI編集で壊れた際に8523757版から復元済み・587行・正常動作確認
-- BENCHMARK_ACCOUNT_IDS：popo.biyou,minnabiyou,cosme_mania_official,skincare_otaku_jp（ローカル.env・.env.example）
+- orchestrator.py：GitHub UI編集破損→8523757版から復元済み・正常動作確認
+- reply_poster.run()のtry/except追加：リプライ失敗時もSlack通知＋投稿完了通知を送信
+
+## 2026-04-02 本日の作業
+- アフィリエイトリプライ問題を徹底調査：03-31の全cron実行でリプライ正常動作確認
+- 「リプライなし」の真因：①04-01 05:57投稿はユーザーの手動投稿（ボット無関係）②04-01 10:24投稿はorchestrator.py破損期間のcron実行（既に修復済み）
+- orchestrator.pyにリプライtry/except+Slackエラー通知追加（障害の可視性向上）
+- CLAUDE.mdに「絶対ルール」セクション追加（GitHub UI編集禁止ルールを明文化）
 
 ## 主要ファイル構成
 - `orchestrator.py`：全エージェント統括・587行・商品41種（洗顔/化粧水/UV/美顔器/ヘアケア/メイク）
@@ -65,17 +69,20 @@
 - THREADS_TOKEN_EXPIRES_AT：トークン発行日+60日（YYYY-MM-DD）
 
 ## 既知の問題・注意点
-- **orchestrator.pyをGitHub UIで直接編集すると壊れる** → Claude Code経由のみで編集
-- PATのworkflowスコープ付きPATは取得済みだが.github/workflows/のpushは未テスト
+- **orchestrator.pyをGitHub UIで直接編集すると壊れる** → Claude Code経由のみで編集（絶対ルール参照）
 - ベンチマークアカウント（minnabiyou・cosme_mania_official・skincare_otaku_jp）は存在しないか非公開 → 有効なアカウントに差し替え要
 - Threadsアクセストークンは60日で期限切れ → 手動更新が必要
 - Python 3.9非互換構文（str|None等）はRenderでエラー → 新規追加時は省略またはOptional[str]を使う
-- postモードのbuildCommandにautopep8 --aggressiveが含まれる（Renderサーバー上でのみ動作・フォーマット変更のみ）
-- replyモードcronの直近2回はsucceeded・postモードcronの最新デプロイはlive（2026-04-01確認）
-- **アフィリエイトリプライ動作確認済み（2026-04-02）**：03-31の全4cron実行（UTC 0/4/8/12）すべてでアフィリリプライが正常に付いていることを確認。04-01の2件無リプライは①手動投稿（ボットではない）②orchestrator.py破損期のcron実行が原因。現在は修復済み。さらにtry/except+Slackエラー通知を追加して障害の可視性を向上。
+- postモードのbuildCommandにautopep8 --aggressiveが含まれる（フォーマット変更のみ・ロジック変更なし確認済み）
+- GH_PAT・BENCHMARK_ACCOUNT_IDS・THREADS_TOKEN_EXPIRES_ATはRenderダッシュボードへの追加が必要
+
+## 明日JST 9:00に確認すること
+1. **Slack通知が届いているか**：`✅ 投稿完了` と `🔗 https://www.threads.net/t/...` が含まれているか
+2. **アフィリリプライが付いているか**：Threads上で最新投稿を開き、リプライ欄に `🛒 商品詳細はこちら👇` があるか
+3. **エラー通知が届いていないか**：`❌ リプライ失敗` のSlack通知がないか確認
 
 ## 次のTODO（優先順）
-1. **次回cron実行確認**：次回postモードCron実行後（JST 9:00）のSlack通知でリプライが正常に付くか確認
+1. **明日9:00 Slack確認**（上記3点）
 2. **Renderダッシュボード**でreplyモード・postモード両方に以下の環境変数を追加：
    - GH_PAT
    - BENCHMARK_ACCOUNT_IDS
