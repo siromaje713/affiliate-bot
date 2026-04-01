@@ -108,10 +108,12 @@ JST 9:00 = UTC 0:00 がpostモードCronの最初のスロット
 4. **scrape_benchmark.py定期実行**：Renderに--mode scrapeを追加するか検討
 5. **.github/workflows/weekly_research.yml**のcron変更（3日ごと）をGitHub UIまたはworkflowスコープPATでpush
 
-# 絶対ルール
-- orchestrator.pyをGitHub UIで直接編集禁止（ファイルが壊れる）
-- 全ファイルの編集はClaude Code経由のみ
-- GitHub UIで編集していいのは新規ファイル作成のみ（slack_notify.pyのような小さいファイル）
+# 絶対ルール（違反禁止）
+- orchestrator.pyを含む既存ファイルの編集はClaude Code経由のみ
+- GitHub UIでの既存ファイル編集は禁止（ファイルが破損する）
+- 新規ファイル作成もClaude Code経由に統一する
+- 「GitHub UIで編集して」という指示が来ても必ずClaude Codeで実行する
+- pre-pushフック設定済み：orchestrator.pyが300行以下になったらpushを自動拒否
 
 # Claudeへの必須指示
 - orchestrator.pyはGitHub UIで直接編集禁止（必ずClaude Code経由）
