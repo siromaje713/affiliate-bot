@@ -25,7 +25,7 @@ def _get_user_id() -> str:
     return os.environ["THREADS_USER_ID"]
 
 
-def _lookup_user_id(username: str) -> str | None:
+def _lookup_user_id(username: str):
     """Threads検索APIでユーザー名から数値IDを取得する"""
     try:
         resp = requests.get(
