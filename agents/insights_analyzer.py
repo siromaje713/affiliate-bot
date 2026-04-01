@@ -95,6 +95,14 @@ def run() -> list:
     all_patterns = win_patterns[:5] + benchmark_patterns
     with open(_wp_path, "w", encoding="utf-8") as f:
         json.dump(all_patterns, f, ensure_ascii=False, indent=2)
+    # GitHubに永続化（Renderリセット対策）
+    try:
+        import sys as _sys, pathlib as _pl
+        _sys.path.insert(0, str(_pl.Path(__file__).parent.parent))
+        from github_sync import save_to_github
+        save_to_github("winning_patterns", all_patterns, "auto: update winning_patterns")
+    except Exception as _e:
+        print(f"[InsightsAnalyzer] GitHub sync skipped: {_e}")
     print(f"[InsightsAnalyzer] winning_patterns.json に 自分{min(len(win_patterns),5)}件+ベンチマーク{len(benchmark_patterns)}件 書き出し完了")
     return win_patterns
 
