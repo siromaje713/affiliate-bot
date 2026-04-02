@@ -371,6 +371,21 @@ def run_with_timeout(label: str, fn, *args, timeout: int = AGENT_TIMEOUT, fallba
 def run_pipeline(dry_run: bool = False):
     """バズ分析→フック最適化→ライティング→投稿→リプリンクの新パイプライン"""
     t_start = time.time()
+
+    # 起動時診断：環境変数チェック
+    _env_status = {k: "OK" if os.environ.get(k) else "未設定" for k in [
+        "ANTHROPIC_API_KEY", "THREADS_ACCESS_TOKEN", "THREADS_USER_ID", "SLACK_WEBHOOK_URL"
+    ]}
+    _env_msg = " / ".join(f"{k}:{v}" for k, v in _env_status.items())
+    print(f"[Orchestrator] 環境変数: {_env_msg}")
+    if slack_notify:
+        slack_notify("success", f"🚀 postモード起動\n{_env_msg}")
+    if _env_status["ANTHROPIC_API_KEY"] == "未設定":
+        print("[Orchestrator] ANTHROPIC_API_KEY未設定 → 終了")
+        if slack_notify:
+            slack_notify("error", "❌ ANTHROPIC_API_KEY未設定。Renderダッシュボードで設定してください")
+        return
+
     counter = read_counter()
     post_type = "buzz" if counter % 3 == 0 else "link"
     print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
