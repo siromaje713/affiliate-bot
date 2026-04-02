@@ -1,0 +1,145 @@
+name: Threadsトークン月次自動更新
+
+on:
+  schedule:
+    - cron: "0 2 1 * *"  # 毎月1日 UTC 2:00 (JST 11:00)
+  workflow_dispatch:     # 手動実行も可能
+
+jobs:
+  refresh-token:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Threadsトークンを更新
+        id: refresh
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -e
+          python3 -c "
+          import urllib.request, urllib.parse, json, os, sys, base64
+          from datetime import datetime, timedelta, timezone
+
+          current_token = os.environ['THREADS_ACCESS_TOKEN']
+          render_api_key = os.environ['RENDER_API_KEY']
+          slack_url = os.environ.get('SLACK_WEBHOOK_URL', '')
+
+          RENDER_SERVICES = ['crn-d72ovqm3jp1c7386q0fg', 'crn-d741a6q4d50c73bvbavg']
+
+          # Threads refresh API
+          params = urllib.parse.urlencode({'grant_type': 'th_refresh_token', 'access_token': current_token})
+          req = urllib.request.Request(f'https://graph.threads.net/refresh_access_token?{params}')
+          with urllib.request.urlopen(req, timeout=30) as resp:
+              data = json.loads(resp.read())
+
+          new_token = data.get('access_token')
+          expires_in = data.get('expires_in', 5184000)
+
+          if not new_token:
+              raise ValueError(f'refresh failed: {data}')
+
+          jst = timezone(timedelta(hours=9))
+          expires_at = datetime.now(jst) + timedelta(seconds=expires_in)
+          expires_ts = str(int(expires_at.timestamp()))[:10]
+          expires_str = expires_at.strftime('%Y-%m-%d %H:%M JST')
+
+          print(f'NEW_TOKEN={new_token}', flush=True)
+          print(f'EXPIRES_TS={expires_ts}', flush=True)
+          print(f'EXPIRES_STR={expires_str}', flush=True)
+
+          # Update Render services
+          for svc in RENDER_SERVICES:
+              ex_req = urllib.request.Request(
+                  f'https://api.render.com/v1/services/{svc}/env-vars',
+                  headers={'Authorization': f'Bearer {render_api_key}', 'Accept': 'application/json'}
+              )
+              with urllib.request.urlopen(ex_req, timeout=15) as r:
+                  existing = json.loads(r.read())
+              env_map = {item['envVar']['key']: item['envVar']['value'] for item in existing}
+              env_map['THREADS_ACCESS_TOKEN'] = new_token
+              env_map['THREADS_TOKEN_EXPIRES_AT'] = expires_ts
+              payload = json.dumps([{'key': k, 'value': v} for k, v in env_map.items()]).encode()
+              put_req = urllib.request.Request(
+                  f'https://api.render.com/v1/services/{svc}/env-vars',
+                  data=payload,
+                  method='PUT',
+                  headers={'Authorization': f'Bearer {render_api_key}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
+              )
+              with urllib.request.urlopen(put_req, timeout=15) as r:
+                  r.read()
+              print(f'Render {svc}: updated')
+
+          # Slack notify
+          if slack_url:
+              msg = f'✅ Threadsトークン月次更新完了\n新しい有効期限: {expires_str}'
+              slack_req = urllib.request.Request(
+                  slack_url,
+                  data=json.dumps({'text': msg}).encode(),
+                  headers={'Content-Type': 'application/json'}
+              )
+              urllib.request.urlopen(slack_req, timeout=10)
+
+          # Output for next step
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'new_token={new_token}\n')
+              f.write(f'expires_ts={expires_ts}\n')
+          "
+
+      - name: GitHub SecretのTHREADS_ACCESS_TOKENを更新
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          NEW_TOKEN: ${{ steps.refresh.outputs.new_token }}
+          EXPIRES_TS: ${{ steps.refresh.outputs.expires_ts }}
+        run: |
+          if [ -z "$NEW_TOKEN" ]; then
+            echo "新トークンが空のためスキップ"
+            exit 0
+          fi
+
+          REPO="siromaje713/affiliate-bot"
+
+          KEY_RESP=$(curl -sf \
+            -H "Authorization: Bearer $GH_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/secrets/public-key")
+
+          KEY_ID=$(echo "$KEY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['key_id'])")
+          PUB_KEY=$(echo "$KEY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['key'])")
+
+          update_secret() {
+            local name="$1"
+            local value="$2"
+            ENCRYPTED=$(python3 -c "
+          import base64, sys
+          from nacl.public import PublicKey, SealedBox
+          pip_installed = True
+          try:
+              from nacl.public import PublicKey, SealedBox
+          except:
+              import subprocess
+              subprocess.run(['pip', 'install', 'PyNaCl', '-q'])
+              from nacl.public import PublicKey, SealedBox
+          pub_key_bytes = base64.b64decode('${PUB_KEY}')
+          secret_bytes = sys.stdin.buffer.read()
+          pub = PublicKey(pub_key_bytes)
+          box = SealedBox(pub)
+          encrypted = box.encrypt(secret_bytes)
+          print(base64.b64encode(encrypted).decode())
+          " <<< "$value")
+
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X PUT \
+              -H "Authorization: Bearer $GH_PAT" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              -d "{\"encrypted_value\": \"$ENCRYPTED\", \"key_id\": \"$KEY_ID\"}" \
+              "https://api.github.com/repos/$REPO/actions/secrets/$name")
+            echo "$name: HTTP $STATUS"
+          }
+
+          pip install PyNaCl -q
+          update_secret "THREADS_ACCESS_TOKEN" "$NEW_TOKEN"
+          update_secret "THREADS_TOKEN_EXPIRES_AT" "$EXPIRES_TS"
