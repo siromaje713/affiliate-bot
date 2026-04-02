@@ -36,6 +36,21 @@
 - orchestrator.py：GitHub UI編集破損→8523757版から復元済み・正常動作確認
 - reply_poster.run()のtry/except追加：リプライ失敗時もSlack通知＋投稿完了通知を送信
 
+## 2026-04-02 緊急対応（9時投稿停止）
+### 原因
+Renderの環境変数（ANTHROPIC_API_KEY・THREADS_ACCESS_TOKEN・THREADS_USER_ID・SLACK_WEBHOOK_URL）が未設定だった。ダッシュボードUIで設定してもRender APIには反映されていなかった模様。
+
+### 対応
+1. Render API（PUT /v1/services/{id}/env-vars）で4変数を両サービスに設定
+2. orchestrator.pyに起動時環境変数チェック+Slack通知を追加
+3. run_with_timeoutのエラー・タイムアウトをSlack通知に追加
+4. Writer失敗時のSlack通知を追加
+
+### 復旧確認
+- UTC 13:00（JST 22:00）の手動トリガーで投稿成功
+- IMAGE投稿 + 🛒アフィリリプライ確認
+- スレッド形式投稿 + Amazon URL含むリプライ確認
+
 ## 2026-04-02 本日の作業
 ### 調査・確認
 - Threads APIで直近20件の投稿を取得し `is_reply` / `replies_count` を確認
@@ -68,24 +83,29 @@
 - `scripts/import_benchmark.py`：ThreadsURLから手動でwinning_patterns.jsonに追記
 
 ## 環境変数
-### Renderに設定済み（postモード・replyモード両方）
+### Renderに設定済み（postモード・replyモード両方）※2026-04-02 Render APIで設定完了
 - ANTHROPIC_API_KEY
 - THREADS_ACCESS_TOKEN（60日期限）
 - THREADS_USER_ID：26498495833117828
 - SLACK_WEBHOOK_URL
+- THREADS_TOKEN_EXPIRES_AT（10chars）
 
 ### Renderに未設定（要追加）
-- GH_PAT：（GitHub Secretsに登録済み・値はRenderダッシュボードで設定）
+- GH_PAT：（GitHub Secretsに登録済み・Renderにも要設定）
 - BENCHMARK_ACCOUNT_IDS：popo.biyou,minnabiyou,cosme_mania_official,skincare_otaku_jp
-- THREADS_TOKEN_EXPIRES_AT：トークン発行日+60日（YYYY-MM-DD）
+
+### 環境変数の設定方法（重要）
+- Renderダッシュボードの「Environment」で設定してもRender APIには反映されない場合がある
+- **Render APIで直接設定すること**：`PUT /v1/services/{id}/env-vars`
+- 設定スクリプト：orchestrator.pyと同ディレクトリのPythonスクリプトで.envから読み込んでAPI経由でセット
 
 ## 既知の問題・注意点
 - **orchestrator.pyをGitHub UIで直接編集すると壊れる** → Claude Code経由のみで編集（絶対ルール参照）
+- **Render環境変数はダッシュボードUIではなくAPIで設定**（2026-04-02発覚・修正済み）
 - ベンチマークアカウント（minnabiyou・cosme_mania_official・skincare_otaku_jp）は存在しないか非公開 → 有効なアカウントに差し替え要
-- Threadsアクセストークンは60日で期限切れ → 手動更新が必要
+- Threadsアクセストークンは60日で期限切れ → 手動更新が必要（期限切れ前にSlack警告あり）
 - Python 3.9非互換構文（str|None等）はRenderでエラー → 新規追加時は省略またはOptional[str]を使う
 - postモードのbuildCommandにautopep8 --aggressiveが含まれる（フォーマット変更のみ・ロジック変更なし確認済み）
-- GH_PAT・BENCHMARK_ACCOUNT_IDS・THREADS_TOKEN_EXPIRES_ATはRenderダッシュボードへの追加が必要
 
 ## 明日JST 9:00に確認すること（2026-04-03）
 JST 9:00 = UTC 0:00 がpostモードCronの最初のスロット
