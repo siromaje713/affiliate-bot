@@ -118,15 +118,20 @@ JST 9:00 = UTC 0:00 がpostモードCronの最初のスロット
    - リプライ欄に `🛒 商品詳細はこちら👇` + AmazonアフィリリンクのリプライがあればOK
 3. **問題があれば**：Claude Codeに「CLAUDE.mdを読んで続きをやって」で再開
 
+## 自動化（2026-04-02実装済み）
+### 再発防止策
+1. **Render環境変数週次同期**（`.github/workflows/sync_render_env.yml`）
+   - 毎週日曜 JST 10:00 に GitHub Secrets → Render API で自動同期
+   - 設定済みSecrets: ANTHROPIC_API_KEY / THREADS_ACCESS_TOKEN / THREADS_USER_ID / SLACK_WEBHOOK_URL / RENDER_API_KEY / GH_PAT
+2. **Threadsトークン月次自動更新**（`.github/workflows/refresh_threads_token.yml`）
+   - 毎月1日 JST 11:00 に Threads refresh API → Render API → GitHub Secrets を自動更新
+3. **ローカル更新スクリプト**（`scripts/refresh_threads_token.py`）
+   - 手動更新用：`THREADS_ACCESS_TOKEN=xxx RENDER_API_KEY=xxx python3 scripts/refresh_threads_token.py`
+
 ## 次のTODO（優先順）
-1. **明日9:00 Slack確認**（上記3点）
-2. **Renderダッシュボード**でreplyモード・postモード両方に以下の環境変数を追加：
-   - GH_PAT
-   - BENCHMARK_ACCOUNT_IDS
-   - THREADS_TOKEN_EXPIRES_AT
-3. **有効なベンチマークアカウント**に差し替え（現在minnabiyou等が0件）
-4. **scrape_benchmark.py定期実行**：Renderに--mode scrapeを追加するか検討
-5. **.github/workflows/weekly_research.yml**のcron変更（3日ごと）をGitHub UIまたはworkflowスコープPATでpush
+1. **有効なベンチマークアカウント**に差し替え（現在minnabiyou等が0件）
+2. **Renderに未設定の環境変数を追加**：GH_PAT / BENCHMARK_ACCOUNT_IDS
+3. **scrape_benchmark.py定期実行**：Renderに--mode scrapeを追加するか検討
 
 # 絶対ルール（違反禁止）
 - orchestrator.pyを含む既存ファイルの編集はClaude Code経由のみ
