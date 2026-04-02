@@ -1,0 +1,74 @@
+name: ベンチマークスクレイプ週次実行
+
+on:
+  schedule:
+    - cron: "0 21 * * 2"  # 毎週火曜 UTC 21:00 (JST 水曜 06:00)
+  workflow_dispatch:       # 手動実行も可能
+    inputs:
+      accounts:
+        description: "スクレイプするアカウント（カンマ区切り、空欄でSecrets使用）"
+        required: false
+        default: ""
+      days:
+        description: "直近N日分を取得"
+        required: false
+        default: "7"
+      min_likes:
+        description: "いいね最低数フィルタ"
+        required: false
+        default: "50"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 依存関係インストール
+        run: |
+          pip install playwright python-dotenv -q
+          playwright install chromium --with-deps
+
+      - name: ベンチマークスクレイプ実行
+        env:
+          BENCHMARK_ACCOUNT_IDS: ${{ secrets.BENCHMARK_ACCOUNT_IDS || 'popo.biyou' }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          ACCOUNTS="${{ github.event.inputs.accounts }}"
+          DAYS="${{ github.event.inputs.days || '7' }}"
+          MIN_LIKES="${{ github.event.inputs.min_likes || '50' }}"
+
+          if [ -n "$ACCOUNTS" ]; then
+            ACCOUNTS_ARG="--accounts $ACCOUNTS"
+          else
+            ACCOUNTS_ARG=""
+          fi
+
+          python3 scripts/scrape_benchmark.py \
+            $ACCOUNTS_ARG \
+            --days "$DAYS" \
+            --min-likes "$MIN_LIKES" \
+            --limit 30 \
+            2>&1 | tee /tmp/scrape_output.txt
+
+          # 結果サマリーをSlack通知
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            SUMMARY=$(tail -5 /tmp/scrape_output.txt | tr '\n' ' ')
+            curl -s -X POST \
+              -H "Content-Type: application/json" \
+              -d "{\"text\": \"🔍 ベンチマークスクレイプ完了\n${SUMMARY}\"}" \
+              "$SLACK_WEBHOOK_URL" || true
+          fi
+
+      - name: winning_patterns.json をコミット・プッシュ
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add agents/cache/winning_patterns.json
+          git diff --staged --quiet && echo "変更なし" && exit 0
+          git commit -m "chore: update winning_patterns from scrape [skip ci]"
+          git push
