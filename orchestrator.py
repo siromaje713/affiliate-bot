@@ -356,10 +356,14 @@ def run_with_timeout(label: str, fn, *args, timeout: int = AGENT_TIMEOUT, fallba
         return result
     except FuturesTimeoutError:
         print(f"[Timer] {label}: タイムアウト({timeout}秒) → スキップ")
+        if slack_notify:
+            slack_notify("error", f"⏱ {label}: タイムアウト({timeout}秒)")
         return fallback
     except Exception as e:
         elapsed = time.time() - t0
         print(f"[Timer] {label}: エラー({elapsed:.1f}秒) → {e}")
+        if slack_notify:
+            slack_notify("error", f"❌ {label}: エラー\n{type(e).__name__}: {str(e)[:200]}")
         return fallback
     finally:
         ex.shutdown(wait=False)
@@ -447,6 +451,8 @@ def run_pipeline(dry_run: bool = False):
 
     if not best_post:
         print("[Orchestrator] 品質基準を満たす投稿が生成できませんでした")
+        if slack_notify:
+            slack_notify("error", f"🚫 Writer失敗: 投稿スキップ\n商品: {_pname}\nhook_text: {hook_text}")
         if not dry_run:
             return
 
