@@ -46,7 +46,7 @@ jobs:
           prompt = f"""美容系ThreadsアフィリエイトのAIアナリストとして分析してwinning_patterns.jsonを更新してください。
 リサーチデータ: {json.dumps(research_data, ensure_ascii=False)}
 現在のpatterns: {json.dumps(current, ensure_ascii=False)}
-JSONのみ返してください（```不要）。top_patternsは上位10件。既存とマージして更新。
+JSONのみ返してください。top_patternsは上位10件。既存とマージして更新。
 構造: {{"version":"1.0","last_updated":"YYYY-MM-DD","top_patterns":[{{"pattern_type":"","hook_example":"","avg_likes":0,"reason":""}}],"hook_patterns":{{"専門家ゾッと型":{{"score":0,"sample":"","count":0}},"悩み直撃型":{{"score":0,"sample":"","count":0}},"話題便乗型":{{"score":0,"sample":"","count":0}},"情報訂正型":{{"score":0,"sample":"","count":0}},"断言命令型":{{"score":0,"sample":"","count":0}},"DM要請型":{{"score":0,"sample":"","count":0}},"自虐キャラ型":{{"score":0,"sample":"","count":0}}}},"emotion_triggers":[],"top_categories":[],"benchmark_insights":[]}}"""
           msg = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=2000,
               messages=[{"role": "user", "content": prompt}])
