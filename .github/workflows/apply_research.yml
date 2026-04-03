@@ -1,0 +1,115 @@
+name: リサーチ結果をwinning_patternsに統合
+
+on:
+  push:
+    paths:
+      - "docs/research_*.json"
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 最新のresearchファイルを特定してwinning_patternsに統合
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python3 - << 'PYEOF'
+          import json, os, glob, sys, urllib.request
+          from datetime import datetime, timezone
+
+          # 最新のresearchファイルを取得
+          files = sorted(glob.glob("docs/research_*.json"), reverse=True)
+          if not files:
+              print("research_*.json が見つかりません")
+              sys.exit(0)
+
+          latest = files[0]
+          print(f"処理: {latest}")
+
+          with open(latest, encoding="utf-8") as f:
+              research = json.load(f)
+
+          # research JSONから投稿データを抽出（Cowork出力形式に対応）
+          new_entries = []
+          posts = research if isinstance(research, list) else research.get("posts", research.get("data", []))
+          for item in posts:
+              hook = item.get("hook_text") or item.get("text") or item.get("hook") or ""
+              full = item.get("full_text") or item.get("content") or hook
+              likes = item.get("like_count") or item.get("likes") or item.get("like") or 0
+              account = item.get("account") or item.get("username") or item.get("user") or "unknown"
+              date = item.get("post_date") or item.get("datetime") or item.get("date") or ""
+              if not hook or int(likes) < 50:
+                  continue
+              new_entries.append({
+                  "source": "cowork_research",
+                  "account": str(account),
+                  "like_count": int(likes),
+                  "hook_text": hook[:80],
+                  "full_text": full[:300],
+                  "post_date": date,
+              })
+
+          print(f"新規エントリ: {len(new_entries)}件（いいね50+）")
+
+          # 既存のwinning_patternsとマージ
+          wp_path = "agents/cache/winning_patterns.json"
+          existing = []
+          if os.path.exists(wp_path):
+              try:
+                  with open(wp_path, encoding="utf-8") as f:
+                      existing = json.load(f)
+                  if not isinstance(existing, list):
+                      existing = []
+              except Exception:
+                  existing = []
+
+          existing_hooks = {e.get("hook_text", "") for e in existing}
+          added = [e for e in new_entries if e["hook_text"] not in existing_hooks]
+          merged = existing + added
+          merged.sort(key=lambda x: x.get("like_count", 0), reverse=True)
+          # 上位50件に絞る
+          merged = merged[:50]
+
+          os.makedirs("agents/cache", exist_ok=True)
+          with open(wp_path, "w", encoding="utf-8") as f:
+              json.dump(merged, f, ensure_ascii=False, indent=2)
+
+          print(f"winning_patterns.json 更新: 追加{len(added)}件 / 合計{len(merged)}件")
+
+          # Slack通知
+          slack_url = os.environ.get("SLACK_WEBHOOK_URL", "")
+          if slack_url and added:
+              top = merged[0]
+              msg = (
+                  f"📊 リサーチ反映完了\n"
+                  f"追加: {len(added)}件 / 合計: {len(merged)}件\n"
+                  f"🏆 1位 ❤️{top['like_count']} @{top['account']}\n"
+                  f"「{top['hook_text'][:50]}」"
+              )
+              req = urllib.request.Request(
+                  slack_url,
+                  data=json.dumps({"text": msg}).encode(),
+                  headers={"Content-Type": "application/json"},
+              )
+              try:
+                  urllib.request.urlopen(req, timeout=10)
+              except Exception as e:
+                  print(f"Slack通知失敗: {e}")
+          PYEOF
+
+      - name: winning_patterns.json をコミット・プッシュ
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add agents/cache/winning_patterns.json
+          git diff --staged --quiet && echo "変更なし" && exit 0
+          git commit -m "chore: apply research to winning_patterns [skip ci]"
+          git push

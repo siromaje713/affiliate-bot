@@ -1,0 +1,34 @@
+name: Weekly Buzz Research
+
+on:
+  schedule:
+    - cron: '0 20 */3 * *'  # 3日ごとUTC 20:00 = JST 05:00
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run buzz research
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+        run: python3 orchestrator.py --mode research
+
+      - name: Commit updated buzz_patterns.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/buzz_patterns.json
+          git diff --staged --quiet || git commit -m "chore: update buzz_patterns [skip ci]"
+          git push

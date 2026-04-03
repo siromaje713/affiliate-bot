@@ -156,13 +156,6 @@ Cowork（リサーチ）
 
 ---
 
-# 別プロジェクト（このリポジトリとは完全分離）
-- fortune-bot：占い専用Threads → 別リポジトリで管理
-- catman-video：AI動画（猫×男）Instagram/TikTok → 別リポジトリで管理
-※ このCLAUDE.mdには記載しない
-
----
-
 # 絶対ルール（違反禁止）
 - orchestrator.pyを含む既存ファイルの編集はClaude Code経由のみ
 - GitHub UIでの既存ファイル編集は禁止（ファイルが破損する）
