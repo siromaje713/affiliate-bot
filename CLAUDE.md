@@ -20,6 +20,7 @@
 ## 次にやること（優先順）
 1. ベンチマークアカウントを追加（基準を満たすものを随時追加）
 2. healthcheck cronをRenderに追加
+5. image_generator.py 実装（06_画像戦略_プロンプト集.md参照・Fal AI birefnet→Flux構成）
 
 ---
 
@@ -105,8 +106,7 @@ Cowork（リサーチ）
 ## アカウント情報
 - スレッズ：@riko_cosme_lab
 - ジャンル：美容全般（スキンケア・美顔器メイン）
-- Amazonアソシエイト：rikocosmelab-22
-- 楽天アフィリエイト：登録済み
+- Amazonアソシエイト：rikocosmelab-22（メイン）/ 楽天アフィリエイト：登録済み（サブ）
 - Meta Developerアプリ：affiliate-bot（ID: 707899495683413）
 - Render APIキー：rnd_EkjoD9DODsbQNf0VIrj0zfN4wkVh
 
@@ -120,6 +120,7 @@ Cowork（リサーチ）
 2. apply_research.yml → winning_patterns.json 自動更新
 3. HookOptimizer → Writer（109文字・winning_patterns参照）
 4. Threads API → リプライに楽天/Amazonアフィリリンク
+4.5 画像生成：Amazon商品画像をFal AI（birefnet）で背景除去→Flux image-to-imageでおしゃれな背景に合成→Threads投稿に添付（月約600円）
 5. insights_analyzer.py → いいね上位を学習 → ループ
 
 ---
