@@ -25,17 +25,17 @@ _MAKEUP_KEYWORDS = [
 # ── カテゴリ別プロンプト ──────────────────────────────────────────────
 _PROMPTS = {
     "skincare": (
-        "A luxury skincare product on a marble vanity counter, soft morning light through sheer curtains, "
+        "Full frame, a luxury skincare product on a marble vanity counter, soft morning light through sheer curtains, "
         "fresh flowers in background, minimalist Japanese bathroom aesthetic, warm golden tones, "
         "product photography style, highly detailed, sharp focus, 8K"
     ),
     "makeup": (
-        "Makeup products on a pink marble surface with gold accessories, soft natural shadows, "
+        "Full frame, makeup products on a pink marble surface with gold accessories, soft natural shadows, "
         "beauty blogger flatlay style, overhead angle, pastel feminine aesthetic, "
         "highly detailed, sharp focus, 8K"
     ),
     "device": (
-        "A beauty device on a soft white towel next to herbal tea, morning skincare routine, "
+        "Full frame, a beauty device on a soft white towel next to herbal tea, morning skincare routine, "
         "clean bright counter, warm lifestyle photography, highly detailed, sharp focus, 8K"
     ),
 }
@@ -89,7 +89,7 @@ def generate_product_image(product_name, image_url=None):
             "fal-ai/flux-pro/v1.1",
             arguments={
                 "prompt": prompt,
-                "image_size": {"width": 1080, "height": 1080},
+                "image_size": "square_hd",
                 "num_inference_steps": 28,
                 "guidance_scale": 3.5,
                 "num_images": 1,
