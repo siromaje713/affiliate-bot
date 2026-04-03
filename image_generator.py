@@ -12,6 +12,34 @@ Amazon商品画像をDL → Pillowで1080×1080に整形 → fal_client.upload()
 import io
 import os
 
+_DEVICE_KEYWORDS = [
+    "美顔器", "フェイスライン", "イオン", "リファ", "ヤーマン", "パナソニック",
+    "ems", "EMS", "rf", "RF", "超音波", "美容機器", "フォトプラス", "エフェクター",
+]
+_MAKEUP_KEYWORDS = [
+    "ファンデ", "ファンデーション", "リップ", "アイシャドウ", "アイライナー",
+    "マスカラ", "チーク", "コンシーラー", "ハイライト", "アイブロウ", "パウダー",
+    "ベースメイク", "メイク", "ティント", "グロス",
+]
+
+_BG_COLORS = {
+    "skincare": (255, 248, 245),  # 温かみのあるオフホワイト
+    "makeup":   (255, 245, 248),  # 薄ピンク
+    "device":   (245, 248, 255),  # 薄ブルー
+    "default":  (250, 248, 245),  # ベージュ
+}
+
+
+def _detect_category(product_name):
+    name = product_name.lower()
+    for kw in _DEVICE_KEYWORDS:
+        if kw.lower() in name:
+            return "device"
+    for kw in _MAKEUP_KEYWORDS:
+        if kw.lower() in name:
+            return "makeup"
+    return "skincare"
+
 
 def generate_product_image(product_name, image_url):
     """
@@ -55,10 +83,13 @@ def generate_product_image(product_name, image_url):
         resp.raise_for_status()
         src = Image.open(io.BytesIO(resp.content)).convert("RGBA")
 
-        # Step2: 1080×1080 白背景にリサイズ（アスペクト比を保ってパディング）
+        # Step2: 1080×1080 カテゴリ別パステル背景にリサイズ（アスペクト比を保ってパディング）
         SIZE = 1080
+        category = _detect_category(product_name)
+        bg_rgb = _BG_COLORS.get(category, _BG_COLORS["default"])
+        print(f"[ImageGen] カテゴリ={category} 背景色={bg_rgb}")
         src.thumbnail((SIZE, SIZE), Image.LANCZOS)
-        canvas = Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 255))
+        canvas = Image.new("RGBA", (SIZE, SIZE), bg_rgb + (255,))
         offset_x = (SIZE - src.width) // 2
         offset_y = (SIZE - src.height) // 2
         canvas.paste(src, (offset_x, offset_y), src)
