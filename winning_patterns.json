@@ -1,0 +1,17 @@
+{
+    "version": "1.0",
+    "last_updated": "2026-04-03",
+    "top_patterns": [],
+    "hook_patterns": {
+          "専門家ゾッと型": {"score": 0, "sample": "", "count": 0},
+          "悩み直撃型": {"score": 0, "sample": "", "count": 0},
+          "話題便乗型": {"score": 0, "sample": "", "count": 0},
+          "情報訂正型": {"score": 0, "sample": "", "count": 0},
+          "断言命令型": {"score": 0, "sample": "", "count": 0},
+          "DM要請型": {"score": 0, "sample": "", "count": 0},
+          "自虐キャラ型": {"score": 0, "sample": "", "count": 0}
+    },
+    "emotion_triggers": [],
+    "top_categories": [],
+    "benchmark_insights": []
+}
