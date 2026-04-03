@@ -65,7 +65,7 @@ def _detect_category(product_name):
 
 
 def _run_fal(endpoint, arguments):
-    """fal_client.run のラッパー。FAL_KEY を環境変数から注入する"""
+    """fal_client.subscribe のラッパー。FAL_KEY を環境変数から注入する"""
     fal_key = os.environ.get("FAL_KEY", "")
     if not fal_key:
         raise RuntimeError("FAL_KEY が環境変数に設定されていません")
@@ -76,12 +76,39 @@ def _run_fal(endpoint, arguments):
         raise RuntimeError("fal-client が未インストールです: pip install fal-client")
 
     os.environ["FAL_KEY"] = fal_key  # fal_client は環境変数を参照する
-    return fal_client.run(endpoint, arguments=arguments)
+    return fal_client.subscribe(endpoint, arguments=arguments)
+
+
+def _upload_image_to_fal(image_url):
+    """
+    Amazon画像URLをローカルにDLしてFal CDNにアップロードする。
+    Fal AIのサーバーはAmazon CDNに直接アクセスできないため必須。
+    Returns: Fal CDN上の画像URL
+    """
+    try:
+        import requests as _requests
+        import fal_client
+    except ImportError:
+        raise RuntimeError("requests または fal-client が未インストールです")
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+    resp = _requests.get(image_url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+    uploaded_url = fal_client.upload(resp.content, content_type)
+    print(f"[ImageGen] Fal CDNアップロード完了: {uploaded_url[:60]}...")
+    return uploaded_url
 
 
 def remove_background(image_url):
     """
     Step1: fal-ai/birefnet で背景除去
+    image_url はローカルDL→Fal CDNアップロード済みのURLを渡すこと
     Returns: 背景除去後の画像URL (PNG)
     """
     result = _run_fal(
@@ -143,8 +170,11 @@ def generate_product_image(product_name, image_url):
         prompt = _PROMPTS.get(category, _PROMPTS["default"])
         print(f"[ImageGen] カテゴリ={category} 商品={product_name[:30]}")
 
+        print("[ImageGen] Amazon画像をFal CDNにアップロード中...")
+        fal_image_url = _upload_image_to_fal(image_url)
+
         print("[ImageGen] Step1: birefnet 背景除去中...")
-        bg_removed_url = remove_background(image_url)
+        bg_removed_url = remove_background(fal_image_url)
         print(f"[ImageGen] Step1完了: {bg_removed_url[:60]}...")
 
         print("[ImageGen] Step2: Flux 背景合成中...")
