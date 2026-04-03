@@ -22,24 +22,28 @@ _MAKEUP_KEYWORDS = [
     "ベースメイク", "メイク", "ティント", "グロス",
 ]
 
-# ── カテゴリ別プロンプト ──────────────────────────────────────────────
-_PROMPTS = {
+# ── カテゴリ別プロンプトテンプレート（{product_name} を商品名で展開） ──
+_PROMPT_TEMPLATES = {
     "skincare": (
-        "Full frame, a luxury skincare product on a marble vanity counter, soft morning light through sheer curtains, "
-        "fresh flowers in background, minimalist Japanese bathroom aesthetic, warm golden tones, "
-        "product photography style, highly detailed, sharp focus, 8K"
+        "Full frame, {product_name} skincare product casually held in a woman's hand, "
+        "modern Japanese apartment interior, white marble countertop, morning light from window, "
+        "minimal lifestyle, Canon 5D portrait lens bokeh background, "
+        "editorial magazine quality, 8K sharp"
     ),
     "makeup": (
-        "Full frame, makeup products on a pink marble surface with gold accessories, soft natural shadows, "
-        "beauty blogger flatlay style, overhead angle, pastel feminine aesthetic, "
-        "highly detailed, sharp focus, 8K"
+        "Full frame, {product_name} makeup product lying on a white bed sheet, "
+        "modern clean Japanese apartment, soft morning sunlight, feminine lifestyle, "
+        "woman's hand reaching for it, shallow depth of field bokeh, "
+        "editorial beauty magazine quality, 8K sharp"
     ),
     "device": (
-        "Full frame, a beauty device on a soft white towel next to herbal tea, morning skincare routine, "
-        "clean bright counter, warm lifestyle photography, highly detailed, sharp focus, 8K"
+        "Full frame, {product_name} beauty device on a wooden bathroom shelf, "
+        "modern Japanese apartment bathroom, soft warm lighting, "
+        "towel and skincare bottles around, lifestyle photography, "
+        "shallow depth of field, editorial quality, 8K sharp"
     ),
 }
-_PROMPTS["default"] = _PROMPTS["skincare"]
+_PROMPT_TEMPLATES["default"] = _PROMPT_TEMPLATES["skincare"]
 
 
 def _detect_category(product_name):
@@ -81,7 +85,8 @@ def generate_product_image(product_name, image_url=None):
         os.environ["FAL_KEY"] = fal_key
 
         category = _detect_category(product_name)
-        prompt = _PROMPTS.get(category, _PROMPTS["default"])
+        template = _PROMPT_TEMPLATES.get(category, _PROMPT_TEMPLATES["default"])
+        prompt = template.format(product_name=product_name)
         print(f"[ImageGen] カテゴリ={category} 商品={product_name[:30]}")
         print("[ImageGen] Flux text-to-image生成中...")
 
