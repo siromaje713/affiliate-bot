@@ -129,7 +129,7 @@ def remove_background(image_url):
 
 def composite_background(bg_removed_url, prompt):
     """
-    Step2: fal-ai/flux/dev/image-to-image で背景合成
+    Step2: fal-ai/flux-pro/v1.1-ultra/image-to-image で背景合成
     Returns: 合成後の画像URL (JPEG)
     """
     result = _run_fal(
@@ -137,10 +137,10 @@ def composite_background(bg_removed_url, prompt):
         {
             "image_url": bg_removed_url,
             "prompt": prompt,
-            "image_size": "square_hd",
+            "image_size": {"width": 1080, "height": 1080},
             "num_inference_steps": 28,
             "guidance_scale": 3.5,
-            "strength": 0.65,
+            "strength": 0.45,
             "num_images": 1,
             "enable_safety_checker": True,
             "output_format": "jpeg",
