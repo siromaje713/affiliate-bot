@@ -1,22 +1,17 @@
-name: Coworkリサーチ リマインダー
+name: Slack Cowork Research Reminder
 
 on:
   schedule:
-    - cron: "0 23 */2 * *"  # 2日ごと UTC 23:00 = JST 翌8:00
+    - cron: '0 23 * * 0,1,3,5'
   workflow_dispatch:
 
 jobs:
   remind:
     runs-on: ubuntu-latest
     steps:
-      - name: Slackにリマインダーを送信
+      - name: Send Slack reminder
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          DATE=$(date '+%Y-%m-%d' --date='9 hours')
-          MSG="🔍 Coworkリサーチの時間です（${DATE}）\n\n手順:\n① Coworkを起動\n② 固定プロンプトを実行\n③ docs/research_${DATE//-/}.json がGitHubにpushされます\n④ 自動でwinning_patterns.jsonに反映されます\n\n固定プロンプト:\ndocs/research_latest.json を読み込んで現状把握。BENCHMARK_ACCOUNT_IDSのアカウントを全件巡回して直近48時間のいいね100+投稿を収集。フックの冒頭パターン・感情トリガー・商品カテゴリをJSONで出力してdocs/research_$(date '+%Y%m%d').jsonとしてGitHubにpushして。"
-
-          curl -sf -X POST \
-            -H "Content-Type: application/json" \
-            -d "{\"text\": \"$MSG\"}" \
-            "$SLACK_WEBHOOK_URL" || true
+          curl -s -X POST "$SLACK_WEBHOOK_URL" -H 'Content-type: application/json' \
+            -d '{"text":"🔔 Coworkリサーチの時間です（2日に1回）\n\n① Coworkを起動\n② 固定プロンプトを実行\n③ あとは全自動でwinning_patterns.jsonが更新されます"}'
