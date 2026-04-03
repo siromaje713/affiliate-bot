@@ -474,13 +474,23 @@ def run_pipeline(dry_run: bool = False):
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
 
-    # Amazon商品画像を取得してbest_postに添付
+    # Amazon商品画像を取得 → FAL_KEYあればAI背景合成、なければ元画像をそのまま添付
     _asin_match = re.search(r'/dp/([A-Z0-9]{10})', _aff_url)
     if _asin_match:
         _image_url = threads_api.get_amazon_image_url(_asin_match.group(1))
         if _image_url:
-            best_post["image_url"] = _image_url
-            print(f"[Orchestrator] 商品画像取得: {_image_url[:60]}...")
+            if os.environ.get("FAL_KEY"):
+                try:
+                    from image_generator import generate_product_image
+                    _gen_url = generate_product_image(_pname, _image_url)
+                    best_post["image_url"] = _gen_url if _gen_url else _image_url
+                    print(f"[Orchestrator] AI背景合成{'完了' if _gen_url else '失敗→元画像使用'}: {best_post['image_url'][:60]}...")
+                except Exception as _ig_err:
+                    best_post["image_url"] = _image_url
+                    print(f"[Orchestrator] AI背景合成エラー→元画像使用: {_ig_err}")
+            else:
+                best_post["image_url"] = _image_url
+                print(f"[Orchestrator] 商品画像取得: {_image_url[:60]}...")
         else:
             print("[Orchestrator] 商品画像取得失敗 → テキスト投稿")
 
