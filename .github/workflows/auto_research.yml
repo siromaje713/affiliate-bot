@@ -1,0 +1,49 @@
+name: Auto Research - Threads Benchmark Scraping
+
+on:
+  schedule:
+    - cron: '0 23 * * 0,2,4'
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright anthropic requests
+          playwright install chromium --with-deps
+
+      - name: Run research
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_REPO: siromaje713/affiliate-bot
+          BENCHMARK_ACCOUNT_IDS: ${{ secrets.BENCHMARK_ACCOUNT_IDS }}
+        run: python3 scripts/cowork_research.py
+
+      - name: Notify Slack on success
+        if: success()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d '{"text":"🔍 自動リサーチ完了。winning_patterns.jsonが更新されます。"}'
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d '{"text":"⚠️ 自動リサーチ失敗。GitHub Actionsのログを確認してください。"}'
