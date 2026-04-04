@@ -1,5 +1,5 @@
 # affiliate-bot 現状（毎回更新）
-最終更新：2026-04-04
+最終更新：2026-04-05
 
 ## 稼働状況
 - postモード cron: crn-d72ovqm3jp1c7386q0fg（JST 9/13/17/21時）
@@ -13,14 +13,18 @@
 - Threadsトークン月次自動更新（refresh_threads_token.yml）
 - apply_research.yml・slack_reminder.yml 追加済み
 - ベンチマークアカウント5件確定
+- image_generator.py: imgur匿名アップロードに変更（Fal CDN→Threads API 500エラー解消）
+- IMGUR_CLIENT_ID: Render両cronに追加済み
+- orchestrator.py: 画像投稿失敗時のテキストフォールバック追加
+- apply_research.yml: YAMLエラー（バッククォート）修正済み
 
 ## 既知の問題
 - GitHub UIでの既存ファイル編集禁止（orchestrator.pyが破損する）→ 必ずClaude Code経由
 
-## 次にやること（優先順）
-1. ベンチマークアカウントを追加（基準を満たすものを随時追加）
-2. healthcheck cronをRenderに追加
-5. image_generator.py 実装（06_画像戦略_プロンプト集.md参照・Fal AI birefnet→Flux構成）
+## 次にやること
+1. 21時の投稿で画像付き投稿が成功するか確認（Slackで確認）
+2. Coworkリサーチを2日に1回回す（Slackリマインダーが来たら）
+3. healthcheck cronをRenderに追加（任意）
 
 ---
 
