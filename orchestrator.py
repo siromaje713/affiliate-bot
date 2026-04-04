@@ -524,7 +524,19 @@ def run_pipeline(dry_run: bool = False):
         print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
         return
 
-    post_result = poster.run(best_post, dry_run=dry_run)
+    try:
+        post_result = poster.run(best_post, dry_run=dry_run)
+    except Exception as _post_err:
+        _err_str = str(_post_err)
+        if best_post.get("image_url") and ("500" in _err_str or "Server" in _err_str):
+            print(f"[Orchestrator] 画像投稿500エラー → テキスト投稿にフォールバック: {_post_err}")
+            if slack_notify:
+                slack_notify("error", f"⚠️ 画像投稿500エラー→テキストフォールバック\n商品: {_pname}")
+            _fallback = dict(best_post)
+            _fallback.pop("image_url", None)
+            post_result = poster.run(_fallback, dry_run=dry_run)
+        else:
+            raise
     write_counter(counter + 1)
 
     post_id = post_result.get("post_id")
