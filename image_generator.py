@@ -1,13 +1,13 @@
 """
 image_generator.py
-Amazon商品画像をDL → Pillowで1080×1080に整形 → fal_client.upload()でCDNにアップ → URL返却
+Amazon商品画像をDL → Pillowで1080×1080に整形 → Imgurにアップ → URL返却
 
 使い方:
     from image_generator import generate_product_image
     url = generate_product_image("肌ラボ 極潤ヒアルロン液", "https://m.media-amazon.com/...")
 
 環境変数:
-    FAL_KEY: Fal AI APIキー（アップロード用途のみ）
+    IMGUR_CLIENT_ID: Imgur Client ID（省略時はデフォルト値を使用）
 """
 import io
 import os
@@ -41,33 +41,43 @@ def _detect_category(product_name):
     return "skincare"
 
 
+def _upload_image(img_bytes):
+    """Imgurに匿名アップロードしてURLを返す"""
+    import base64
+    import requests
+    b64 = base64.b64encode(img_bytes).decode("utf-8")
+    client_id = os.environ.get("IMGUR_CLIENT_ID", "546c25a59c58ad7")
+    res = requests.post(
+        "https://api.imgur.com/3/image",
+        headers={"Authorization": f"Client-ID {client_id}"},
+        data={"image": b64, "type": "base64"},
+        timeout=30,
+    )
+    data = res.json()
+    if not data.get("success"):
+        raise Exception(f"imgur upload failed: {data}")
+    return data["data"]["link"]
+
+
 def generate_product_image(product_name, image_url):
     """
-    Amazon商品画像を1080×1080に整形してCDNにアップロードし、URLを返す。
+    Amazon商品画像を1080×1080に整形してImgurにアップロードし、URLを返す。
 
     Args:
-        product_name: 商品名（ログ用）
+        product_name: 商品名（カテゴリ判定・ログ用）
         image_url:    Amazon商品画像のURL
 
     Returns:
-        CDN上の画像URL (str)。失敗時は None を返す。
+        Imgur上の画像URL (str)。失敗時は None を返す。
     """
-    fal_key = os.environ.get("FAL_KEY", "")
-    if not fal_key:
-        print("[ImageGen] FAL_KEY未設定 → スキップ")
-        return None
-
     try:
         import requests
         from PIL import Image, ImageDraw
-        import fal_client
     except ImportError as e:
         print(f"[ImageGen] ライブラリ未インストール: {e}")
         return None
 
     try:
-        os.environ["FAL_KEY"] = fal_key
-
         # Step1: Amazon画像をDL
         print(f"[ImageGen] 商品画像DL中: {product_name[:30]}")
         resp = requests.get(
@@ -94,12 +104,12 @@ def generate_product_image(product_name, image_url):
         offset_y = (SIZE - src.height) // 2
         canvas.paste(src, (offset_x, offset_y), src)
 
-        # Step3: 下部に薄いグラデーション帯（高さ120px、白→半透明黒）
+        # Step3: 下部に薄いグラデーション帯（高さ120px、透明→半透明黒）
         GRAD_H = 120
         grad = Image.new("RGBA", (SIZE, GRAD_H), (0, 0, 0, 0))
         draw = ImageDraw.Draw(grad)
         for y in range(GRAD_H):
-            alpha = int(80 * y / GRAD_H)  # 最大alpha=80（約30%透明度）
+            alpha = int(80 * y / GRAD_H)
             draw.line([(0, y), (SIZE, y)], fill=(0, 0, 0, alpha))
         canvas.paste(grad, (0, SIZE - GRAD_H), grad)
 
@@ -107,12 +117,11 @@ def generate_product_image(product_name, image_url):
         out = canvas.convert("RGB")
         buf = io.BytesIO()
         out.save(buf, format="JPEG", quality=92)
-        buf.seek(0)
         print("[ImageGen] 画像整形完了（1080×1080）")
 
-        # Step5: Fal CDNにアップロード
-        uploaded_url = fal_client.upload(buf.read(), "image/jpeg")
-        print(f"[ImageGen] アップロード完了: {uploaded_url[:60]}...")
+        # Step5: Imgurにアップロード
+        uploaded_url = _upload_image(buf.getvalue())
+        print(f"[ImageGen] Imgurアップロード完了: {uploaded_url}")
         return uploaded_url
 
     except Exception as e:
