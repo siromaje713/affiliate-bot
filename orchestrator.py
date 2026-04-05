@@ -474,35 +474,7 @@ def run_pipeline(dry_run: bool = False):
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
 
-    # 画像生成: FAL_KEYあればFlux text-to-imageで雰囲気画像を生成、なければAmazon商品画像をフォールバック
-    if os.environ.get("FAL_KEY"):
-        try:
-            from image_generator import generate_product_image
-            _gen_url = generate_product_image(_pname)
-            if _gen_url:
-                best_post["image_url"] = _gen_url
-                print(f"[Orchestrator] Flux画像生成完了: {_gen_url[:60]}...")
-            else:
-                raise RuntimeError("generate_product_image returned None")
-        except Exception as _ig_err:
-            print(f"[Orchestrator] Flux生成失敗→Amazonフォールバック: {_ig_err}")
-            _asin_match = re.search(r'/dp/([A-Z0-9]{10})', _aff_url)
-            if _asin_match:
-                _image_url = threads_api.get_amazon_image_url(_asin_match.group(1))
-                if _image_url:
-                    best_post["image_url"] = _image_url
-                    print(f"[Orchestrator] Amazon画像使用: {_image_url[:60]}...")
-                else:
-                    print("[Orchestrator] Amazon画像取得失敗 → テキスト投稿")
-    else:
-        _asin_match = re.search(r'/dp/([A-Z0-9]{10})', _aff_url)
-        if _asin_match:
-            _image_url = threads_api.get_amazon_image_url(_asin_match.group(1))
-            if _image_url:
-                best_post["image_url"] = _image_url
-                print(f"[Orchestrator] Amazon画像使用（FAL_KEY未設定）: {_image_url[:60]}...")
-            else:
-                print("[Orchestrator] Amazon画像取得失敗 → テキスト投稿")
+    print("[Orchestrator] テキスト投稿モード（画像なし・リーチ優先）")
 
     if not dry_run and random.random() < 0.3:
         print("[Orchestrator] スレッド投稿モード（30%抽選）")

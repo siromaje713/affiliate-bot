@@ -59,71 +59,10 @@ def _upload_image(img_bytes):
     return data["data"]["link"]
 
 
-def generate_product_image(product_name, image_url):
+def generate_product_image(product_name, image_url=None):
     """
-    Amazon商品画像を1080×1080に整形してImgurにアップロードし、URLを返す。
-
-    Args:
-        product_name: 商品名（カテゴリ判定・ログ用）
-        image_url:    Amazon商品画像のURL
-
-    Returns:
-        Imgur上の画像URL (str)。失敗時は None を返す。
+    画像投稿はシャドウバンの原因となるため、常にNoneを返す。
+    テキスト投稿のリーチを優先する。
     """
-    try:
-        import requests
-        from PIL import Image, ImageDraw
-    except ImportError as e:
-        print(f"[ImageGen] ライブラリ未インストール: {e}")
-        return None
-
-    try:
-        # Step1: Amazon画像をDL
-        print(f"[ImageGen] 商品画像DL中: {product_name[:30]}")
-        resp = requests.get(
-            image_url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-            },
-            timeout=15,
-        )
-        resp.raise_for_status()
-        src = Image.open(io.BytesIO(resp.content)).convert("RGBA")
-
-        # Step2: 1080×1080 カテゴリ別パステル背景にリサイズ（アスペクト比を保ってパディング）
-        SIZE = 1080
-        category = _detect_category(product_name)
-        bg_rgb = _BG_COLORS.get(category, _BG_COLORS["default"])
-        print(f"[ImageGen] カテゴリ={category} 背景色={bg_rgb}")
-        src.thumbnail((SIZE, SIZE), Image.LANCZOS)
-        canvas = Image.new("RGBA", (SIZE, SIZE), bg_rgb + (255,))
-        offset_x = (SIZE - src.width) // 2
-        offset_y = (SIZE - src.height) // 2
-        canvas.paste(src, (offset_x, offset_y), src)
-
-        # Step3: 下部に薄いグラデーション帯（高さ120px、透明→半透明黒）
-        GRAD_H = 120
-        grad = Image.new("RGBA", (SIZE, GRAD_H), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(grad)
-        for y in range(GRAD_H):
-            alpha = int(80 * y / GRAD_H)
-            draw.line([(0, y), (SIZE, y)], fill=(0, 0, 0, alpha))
-        canvas.paste(grad, (0, SIZE - GRAD_H), grad)
-
-        # Step4: JPEGに変換してバッファへ
-        out = canvas.convert("RGB")
-        buf = io.BytesIO()
-        out.save(buf, format="JPEG", quality=92)
-        print("[ImageGen] 画像整形完了（1080×1080）")
-
-        # Step5: Imgurにアップロード
-        uploaded_url = _upload_image(buf.getvalue())
-        print(f"[ImageGen] Imgurアップロード完了: {uploaded_url}")
-        return uploaded_url
-
-    except Exception as e:
-        print(f"[ImageGen] エラー: {type(e).__name__}: {e}")
-        return None
+    print("[ImageGen] 画像投稿無効（リーチ優先） → None返却")
+    return None
