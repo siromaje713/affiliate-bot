@@ -1,43 +1,28 @@
 # affiliate-bot 現状（毎回更新）
-最終更新：2026-04-06
+最終更新：2026-04-08
 
 ## 稼働状況
 - postモード cron: crn-d72ovqm3jp1c7386q0fg（JST 9/13/17/21時）
 - replyモード cron: crn-d741a6q4d50c73bvbavg（JST 11/15/19/23時）
-- healthcheck cron: 作成中
 
 ## 完了済み
 - Threads API連携・投稿・リプライ自動化
-- ANTHROPIC_API_KEY未設定による投稿停止 → 復旧済み
-- Render環境変数週次同期（sync_render_env.yml）
-- Threadsトークン月次自動更新（refresh_threads_token.yml）
-- apply_research.yml・slack_reminder.yml 追加済み
-- ベンチマークアカウント5件確定
-- image_generator.py: imgur匿名アップロードに変更（Fal CDN→Threads API 500エラー解消）
-- IMGUR_CLIENT_ID: Render両cronに追加済み
-- orchestrator.py: 画像投稿失敗時のテキストフォールバック追加
-- apply_research.yml: YAMLエラー（バッククォート）修正済み
+- image_generator.py: Noneのみ返す（画像投稿完全停止・シャドウバン対策）
+- orchestrator.py: エンゲージメント70%/アフィリ30%・起動時ランダムsleep(0-3600秒)
+- writer.py: engage post_type追加
+- apply_research.yml: YAMLエラー修正済み
+- 作業ディレクトリ ~/affiliate-bot に一本化（~/Documents/affiliate-bot 削除済み）
+- Claude Codeログイン切れ対処: claude /login で再認証
 
 ## 既知の問題
-- GitHub UIでの既存ファイル編集禁止（orchestrator.pyが破損する）→ 必ずClaude Code経由
+- sync_render_env.yml: Failure（未修正）
 
 ## 次にやること
-1. 21時の投稿で画像付き投稿が成功するか確認（Slackで確認）
-2. Coworkリサーチを2日に1回回す（Slackリマインダーが来たら）
-3. healthcheck cronをRenderに追加（任意）
+1. sync_render_env.yml 修正
 
 ---
 
 # Coworkリサーチ自動学習パイプライン（2日1回）
-
-## 運用フロー（ユーザー操作）
-```
-【2日に1回】
-① Coworkを起動
-② 下記「固定プロンプト」を実行
-③ docs/research_YYYYMMDD.json がGitHubにpushされる
-④ あとは全自動（GitHub Actions → winning_patterns.json更新 → 次の投稿に反映）
-```
 
 ## Cowork起動時の固定プロンプト
 ```
@@ -48,22 +33,13 @@ BENCHMARK_ACCOUNT_IDSのアカウントを全件巡回して
 docs/research_YYYYMMDD.jsonとしてGitHubにpushして。
 ```
 
-## GitHub Actions自動処理（push検知で起動）
-`.github/workflows/apply_research.yml`: `docs/research_*.json` push検知 → `winning_patterns.json` 自動更新 → Slack通知
-
-## Slackリマインダー（2日に1回 JST 8:00）
-- slack_reminder.yml → 月水金日 UTC 23:00に通知
+## GitHub Actions
+- apply_research.yml: docs/research_*.json push → winning_patterns.json更新 → Slack通知
+- slack_reminder.yml: 月水金日 UTC 23:00にリマインダー
 
 ---
 
-# ベンチマークアカウント
-
-## 選定基準
-- 直近1週間以内に投稿あり
-- いいね100件以上の投稿あり
-- ジャンル：美容・スキンケア・コスメ・メイク・垢抜け
-
-## 確定リスト（5件）
+# ベンチマークアカウント（5件）
 | アカウント | いいね100+ | 特徴 |
 |-----------|-----------|------|
 | popo.biyou | 244・648 | Amazon系・垢抜け |
@@ -74,81 +50,48 @@ docs/research_YYYYMMDD.jsonとしてGitHubにpushして。
 
 ---
 
-# 環境変数（affiliate-bot-share env groupに設定済み）
+# 環境変数（Render env groupに設定済み）
 - ANTHROPIC_API_KEY
 - THREADS_ACCESS_TOKEN（60日期限・月次自動更新あり）
 - THREADS_USER_ID: 26498495833117828
 - SLACK_WEBHOOK_URL
 - GH_PAT
 - BENCHMARK_ACCOUNT_IDS: popo.biyou,km.room,momo_cosme_b,kajierimakeup,ior_coco
-- IMGUR_CLIENT_ID
 - PYTHONUNBUFFERED / TZ
+- THREADS_TOKEN_EXPIRES_AT: 2026-05-30
 
 ---
 
 # ツール運用ルール
-
-## 役割分担
-- Cowork：ベンチマーク巡回・競合分析・docs/research_YYYYMMDD.json のpush
-- Claude AI（このチャット）：投稿文生成・戦略・CLAUDE.md更新
-- Claude Code：コード実装・Git管理・デプロイ・バグ修正（起動時「CLAUDE.mdを読んで続きをやって」で即再開）
-
-## データ連携フロー
-```
-Cowork（リサーチ）
-  → docs/research_YYYYMMDD.json をpush
-  → GitHub Actions（apply_research.yml）が自動起動
-  → winning_patterns.json 更新
-  → Render cronが次の投稿生成時に参照
-  → insights_analyzer.py がいいね分析 → 学習ループ
-```
+- Cowork：ベンチマーク巡回・docs/research_YYYYMMDD.json push
+- Claude AI（このチャット）：戦略・CLAUDE.md更新（GitHubのrawから読み込み）
+- Claude Code：~/affiliate-bot/ で起動・コード実装・Git管理
 
 ---
 
 # プロジェクト概要
-美容特化Threads自動投稿×楽天・Amazonアフィリエイト。最終目標：月50万円。
-
-## アカウント情報
+美容特化Threads自動投稿×Amazonアフィリエイト。最終目標：月50万円。
 - スレッズ：@riko_cosme_lab
-- ジャンル：美容全般（スキンケア・美顔器メイン）
-- Amazonアソシエイト：rikocosmelab-22（メイン）/ 楽天アフィリエイト：登録済み（サブ）
+- Amazonアソシエイト：rikocosmelab-22（メイン）/ 楽天（サブ）
 - Meta Developerアプリ：affiliate-bot（ID: 707899495683413）
 - Render APIキー：rnd_EkjoD9DODsbQNf0VIrj0zfN4wkVh
-
-## Renderサービス情報
-- postモードCron ID：crn-d72ovqm3jp1c7386q0fg（JST 9/13/17/21時・UTC 0,4,8,12）
-- replyモードCron ID：crn-d741a6q4d50c73bvbavg（JST 11/15/19/23時・UTC 2,6,10,14）
-- buildCommand：`pip install autopep8 -q && autopep8 --in-place --aggressive orchestrator.py && pip install -r requirements.txt`
-
-## 投稿生成パイプライン
-1. Coworkが2日1回ベンチマーク巡回 → docs/research_YYYYMMDD.json push
-2. apply_research.yml → winning_patterns.json 自動更新
-3. HookOptimizer → Writer（109文字・winning_patterns参照）
-4. Threads API → リプライに楽天/Amazonアフィリリンク
-4.5 画像生成：Amazon商品画像をFal AI（birefnet）で背景除去→Flux image-to-imageでおしゃれな背景に合成→imgurにアップロード→Threads投稿に添付（月約600円）
-5. insights_analyzer.py → いいね上位を学習 → ループ
+- postモードCron ID：crn-d72ovqm3jp1c7386q0fg（UTC 0,4,8,12）
+- replyモードCron ID：crn-d741a6q4d50c73bvbavg（UTC 2,6,10,14）
+- buildCommand: pip install autopep8 -q && autopep8 --in-place --aggressive orchestrator.py && pip install -r requirements.txt
 
 ---
 
 # 絶対ルール
-- orchestrator.pyを含む既存ファイルの編集はClaude Code経由のみ
-- GitHub UIでの既存ファイル編集禁止
+- 既存ファイル編集はClaude Code経由のみ（GitHub UI禁止）
 - git push --force禁止・rm -rf禁止
 - APIキー・トークンをログに出力しない
 - Python 3.10+構文禁止（Renderが3.9）
-- コード変更後は必ず `python3 -c "import orchestrator"` で構文チェック
+- 変更後は python3 -c "import orchestrator" で構文チェック
 
 # Claudeへの必須指示
 - 起動時は必ずCLAUDE.mdを読んで現状把握
 - リスク・落とし穴は先に指摘する
-- このプロジェクトは美容Threads専用。占い・fortune-bot・catman-videoは別リポジトリ
+- 美容Threads専用。占い・fortune-bot・catman-videoは別リポジトリ
 
----
-
-# Claude Codeログイン切れ時の対処法
-症状: 「OAuth token has expired」が出てclaudeコマンドが動かない
-解決手順:
-1. ターミナルで claude /login を実行
-2. ブラウザに Authentication Code ページが開く
-3. 表示されたコードをターミナルに貼り付け → Login successful
-※ rm -rf ~/.claude や npm reinstall は不要・効果なし
+# Claude Codeログイン切れ対処法
+- claude /login を実行 → ブラウザでコード確認 → ターミナルに貼り付け
