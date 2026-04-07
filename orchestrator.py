@@ -368,6 +368,68 @@ def run_with_timeout(label: str, fn, *args, timeout: int = AGENT_TIMEOUT, fallba
     finally:
         ex.shutdown(wait=False)
 
+def generate_engagement_post() -> str:
+    """エンゲージメント投稿を生成（リンクなし・画像なし・109文字以内）"""
+    from utils.claude_cli import ask
+    pattern = random.choice(["質問型", "共感型", "気づき型", "煽り型", "日常型"])
+    print(f"[Orchestrator] エンゲージメントパターン: {pattern}")
+    prompt = (
+        "美容アカウント@riko_cosme_lab（スキンケア・美顔器メイン）のThreads投稿を1つ作って。\n\n"
+        f"スタイル: {pattern}\n"
+        "- 質問型: フォロワーに問いかける質問形式\n"
+        "- 共感型: 「わかる人いる？」のように共感を呼ぶ形式\n"
+        "- 気づき型: 最近気づいた美容の発見をシェア\n"
+        "- 煽り型: 軽く煽ってリアクションを誘う\n"
+        "- 日常型: 美容に関する日常の何気ない一コマ\n\n"
+        "ルール（厳守）:\n"
+        "- 109文字以内\n"
+        "- アフィリエイトリンク・URL・商品名なし\n"
+        "- 「続きはリプ欄」のような誘導フレーズなし\n"
+        "- 絵文字は0〜2個\n"
+        "- スキンケア・美容・コスメに関する自然な口調\n\n"
+        "本文のみ出力（説明・前置き・引用符不要）"
+    )
+    text = ask(prompt).strip()
+    text = text.strip('"').strip("'").strip("「").strip("」").strip()
+    text = strip_links(text)
+    if len(text) > 109:
+        text = text[:109]
+    return text
+
+
+def run_engagement_pipeline(dry_run: bool = False, counter: int = 0):
+    """エンゲージメント投稿パイプライン（テキストのみ・リンクなし）"""
+    t_start = time.time()
+    eng_text = run_with_timeout(
+        "EngagementWriter",
+        generate_engagement_post,
+        timeout=60, fallback=None,
+    )
+    if not eng_text:
+        print("[Orchestrator] エンゲージメント投稿生成失敗")
+        if slack_notify:
+            slack_notify("error", "🚫 エンゲージメント投稿生成失敗")
+        return
+    print(f"[Orchestrator] エンゲージメント本文（{len(eng_text)}字）:\n{eng_text}")
+    eng_post = {"text": eng_text}
+    if dry_run:
+        print(f"[Orchestrator][DRY RUN] エンゲージメント投稿:\n{eng_text}")
+    else:
+        try:
+            post_result = poster.run(eng_post, dry_run=False)
+            write_counter(counter + 1)
+            post_id = post_result.get("post_id") if post_result else None
+            if slack_notify:
+                _link = f"\n🔗 https://www.threads.net/t/{post_id}" if post_id else ""
+                slack_notify("success", f"💬 エンゲージメント投稿完了\n{eng_text}{_link}")
+            print(f"[Orchestrator] エンゲージメント投稿完了: {post_id}")
+        except Exception as e:
+            print(f"[Orchestrator] エンゲージメント投稿失敗: {e}")
+            if slack_notify:
+                slack_notify("error", f"❌ エンゲージメント投稿失敗\n{type(e).__name__}: {str(e)[:200]}")
+    print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
+
+
 def run_pipeline(dry_run: bool = False):
     """バズ分析→フック最適化→ライティング→投稿→リプリンクの新パイプライン"""
     t_start = time.time()
@@ -386,7 +448,20 @@ def run_pipeline(dry_run: bool = False):
             slack_notify("error", "❌ ANTHROPIC_API_KEY未設定。Renderダッシュボードで設定してください")
         return
 
+    # bot判定回避: 起動時に最大1時間ランダムスリープ
+    if not dry_run:
+        _jitter = random.uniform(0, 3600)
+        print(f"[Orchestrator] bot判定回避ジッター: {_jitter:.0f}秒スリープ")
+        time.sleep(_jitter)
+
     counter = read_counter()
+    # 投稿比率: 10周期で3回アフィリ（30%）・7回エンゲージメント（70%）
+    is_affiliate = (counter % 10) in (0, 3, 6)
+    print(f"[Orchestrator] 投稿モード: {'affiliate' if is_affiliate else 'engagement'}（カウンター: {counter}）")
+    if not is_affiliate:
+        run_engagement_pipeline(dry_run=dry_run, counter=counter)
+        return
+
     post_type = "buzz" if counter % 3 == 0 else "link"
     print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
 
