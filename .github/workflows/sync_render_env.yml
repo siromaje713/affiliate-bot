@@ -3,7 +3,7 @@ name: Render環境変数週次同期
 on:
   schedule:
     - cron: "0 1 * * 0"  # 毎週日曜 UTC 1:00 (JST 10:00)
-  workflow_dispatch:      # 手動実行も可能
+  workflow_dispatch:
 
 jobs:
   sync-env-vars:
@@ -19,37 +19,39 @@ jobs:
           THREADS_TOKEN_EXPIRES_AT: ${{ secrets.THREADS_TOKEN_EXPIRES_AT }}
         run: |
           set -e
-
           SERVICES="crn-d72ovqm3jp1c7386q0fg crn-d741a6q4d50c73bvbavg"
-
-          ENV_VARS_JSON='[
-            {"key": "ANTHROPIC_API_KEY", "value": "'"$ANTHROPIC_API_KEY"'"},
-            {"key": "THREADS_ACCESS_TOKEN", "value": "'"$THREADS_ACCESS_TOKEN"'"},
-            {"key": "THREADS_USER_ID", "value": "'"$THREADS_USER_ID"'"},
-            {"key": "SLACK_WEBHOOK_URL", "value": "'"$SLACK_WEBHOOK_URL"'"},
-            {"key": "THREADS_TOKEN_EXPIRES_AT", "value": "'"$THREADS_TOKEN_EXPIRES_AT"'"}
-          ]'
 
           for SERVICE_ID in $SERVICES; do
             echo "🔄 $SERVICE_ID の環境変数を同期中..."
 
-            # 既存の環境変数を取得
             EXISTING=$(curl -sf \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Accept: application/json" \
               "https://api.render.com/v1/services/$SERVICE_ID/env-vars" || echo "[]")
 
-            # 既存キーを抽出してマージ（新しい値で上書き）
-            MERGED=$(echo "$EXISTING" | python3 -c "
-          import json, sys
-          existing = json.load(sys.stdin)
-          existing_map = {item['envVar']['key']: item['envVar']['value'] for item in existing}
-          updates = json.loads('''$ENV_VARS_JSON''')
-          for u in updates:
-              existing_map[u['key']] = u['value']
-          result = [{'key': k, 'value': v} for k, v in existing_map.items()]
-          print(json.dumps(result))
-          ")
+            MERGED=$(python3 << 'PYEOF'
+import json, os, sys
+
+existing_raw = os.environ.get("EXISTING_JSON", "[]")
+try:
+    existing = json.loads(existing_raw)
+    existing_map = {item["envVar"]["key"]: item["envVar"]["value"] for item in existing}
+except Exception:
+    existing_map = {}
+
+updates = {
+    "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
+    "THREADS_ACCESS_TOKEN": os.environ.get("THREADS_ACCESS_TOKEN", ""),
+    "THREADS_USER_ID": os.environ.get("THREADS_USER_ID", ""),
+    "SLACK_WEBHOOK_URL": os.environ.get("SLACK_WEBHOOK_URL", ""),
+    "THREADS_TOKEN_EXPIRES_AT": os.environ.get("THREADS_TOKEN_EXPIRES_AT", ""),
+}
+
+existing_map.update({k: v for k, v in updates.items() if v})
+result = [{"key": k, "value": v} for k, v in existing_map.items()]
+print(json.dumps(result))
+PYEOF
+            )
 
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               -X PUT \
@@ -74,9 +76,9 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           if [ "$JOB_STATUS" = "success" ]; then
-            MSG="✅ Render環境変数週次同期完了\n日時: $(date '+%Y-%m-%d %H:%M JST' --date='9 hours')"
+            MSG="✅ Render環境変数週次同期完了"
           else
-            MSG="❌ Render環境変数週次同期失敗\n日時: $(date '+%Y-%m-%d %H:%M JST' --date='9 hours')\nGitHub Actionsを確認してください"
+            MSG="❌ Render環境変数週次同期失敗 - GitHub Actionsを確認してください"
           fi
           curl -s -X POST \
             -H "Content-Type: application/json" \
