@@ -1,5 +1,5 @@
 # affiliate-bot 現状（毎回更新）
-最終更新：2026-04-05
+最終更新：2026-04-06
 
 ## 稼働状況
 - postモード cron: crn-d72ovqm3jp1c7386q0fg（JST 9/13/17/21時）
@@ -81,6 +81,7 @@ docs/research_YYYYMMDD.jsonとしてGitHubにpushして。
 - SLACK_WEBHOOK_URL
 - GH_PAT
 - BENCHMARK_ACCOUNT_IDS: popo.biyou,km.room,momo_cosme_b,kajierimakeup,ior_coco
+- IMGUR_CLIENT_ID
 - PYTHONUNBUFFERED / TZ
 
 ---
@@ -124,7 +125,7 @@ Cowork（リサーチ）
 2. apply_research.yml → winning_patterns.json 自動更新
 3. HookOptimizer → Writer（109文字・winning_patterns参照）
 4. Threads API → リプライに楽天/Amazonアフィリリンク
-4.5 画像生成：Amazon商品画像をFal AI（birefnet）で背景除去→Flux image-to-imageでおしゃれな背景に合成→Threads投稿に添付（月約600円）
+4.5 画像生成：Amazon商品画像をFal AI（birefnet）で背景除去→Flux image-to-imageでおしゃれな背景に合成→imgurにアップロード→Threads投稿に添付（月約600円）
 5. insights_analyzer.py → いいね上位を学習 → ループ
 
 ---
@@ -141,3 +142,13 @@ Cowork（リサーチ）
 - 起動時は必ずCLAUDE.mdを読んで現状把握
 - リスク・落とし穴は先に指摘する
 - このプロジェクトは美容Threads専用。占い・fortune-bot・catman-videoは別リポジトリ
+
+---
+
+# Claude Codeログイン切れ時の対処法
+症状: 「OAuth token has expired」が出てclaudeコマンドが動かない
+解決手順:
+1. ターミナルで claude /login を実行
+2. ブラウザに Authentication Code ページが開く
+3. 表示されたコードをターミナルに貼り付け → Login successful
+※ rm -rf ~/.claude や npm reinstall は不要・効果なし
