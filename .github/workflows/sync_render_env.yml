@@ -24,20 +24,24 @@ jobs:
           for SERVICE_ID in $SERVICES; do
             echo "🔄 $SERVICE_ID の環境変数を同期中..."
 
-            EXISTING=$(curl -sf \
+            curl -sf \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Accept: application/json" \
-              "https://api.render.com/v1/services/$SERVICE_ID/env-vars" || echo "[]")
+              "https://api.render.com/v1/services/$SERVICE_ID/env-vars" \
+              > /tmp/existing.json || echo "[]" > /tmp/existing.json
 
-            MERGED=$(python3 << 'PYEOF'
-import json, os, sys
+            MERGED=$(ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+              THREADS_ACCESS_TOKEN="$THREADS_ACCESS_TOKEN" \
+              THREADS_USER_ID="$THREADS_USER_ID" \
+              SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL" \
+              THREADS_TOKEN_EXPIRES_AT="$THREADS_TOKEN_EXPIRES_AT" \
+              python3 - << 'PYEOF'
+import json, os
 
-existing_raw = os.environ.get("EXISTING_JSON", "[]")
-try:
-    existing = json.loads(existing_raw)
-    existing_map = {item["envVar"]["key"]: item["envVar"]["value"] for item in existing}
-except Exception:
-    existing_map = {}
+with open("/tmp/existing.json") as f:
+    existing = json.load(f)
+
+existing_map = {item["envVar"]["key"]: item["envVar"]["value"] for item in existing}
 
 updates = {
     "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
