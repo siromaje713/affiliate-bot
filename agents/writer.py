@@ -533,7 +533,7 @@ def run(
         result = score_post(text)
         score = result.get("score", 0)
         print(f"[Writer] パターン{i+1}: スコア{score} - {result.get('reason', '')}")
-        if result["pass"]:
+        if result["pass"] or post_type in ("engage", "list"):
             if best is None or score > best["score"]:
                 best = {"text": text, "score": score, "product": product, "post_type": post_type}
 
