@@ -1,4 +1,4 @@
-import json, os, sys
+import json, os
 
 try:
     with open("/tmp/existing.json") as f:
@@ -17,7 +17,8 @@ updates = {
 existing_map.update({k: v for k, v in updates.items() if v})
 result = [{"key": k, "value": v} for k, v in existing_map.items()]
 
-# ファイルに書き出す（シェル変数経由だとクォートが壊れるため）
 with open("/tmp/merged.json", "w") as f:
     json.dump(result, f)
-print("ok")
+
+# デバッグ用：先頭2件だけ表示
+print(f"ok: {len(result)} vars, preview: {json.dumps(result[:2])}")
