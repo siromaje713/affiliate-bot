@@ -29,14 +29,13 @@ jobs:
               -H "Accept: application/json" \
               "https://api.render.com/v1/services/$SERVICE_ID/env-vars" \
               > /tmp/existing.json || echo "[]" > /tmp/existing.json
-            MERGED=$(python3 scripts/merge_env.py)
-            echo "MERGED preview: $(echo $MERGED | head -c 100)"
+            python3 scripts/merge_env.py
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               -X PUT \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
               -H "Accept: application/json" \
-              -d "$MERGED" \
+              -d @/tmp/merged.json \
               "https://api.render.com/v1/services/$SERVICE_ID/env-vars")
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "201" ]; then
               echo "✅ $SERVICE_ID 同期完了 (HTTP $STATUS)"

@@ -16,4 +16,8 @@ updates = {
 }
 existing_map.update({k: v for k, v in updates.items() if v})
 result = [{"key": k, "value": v} for k, v in existing_map.items()]
-print(json.dumps(result))
+
+# ファイルに書き出す（シェル変数経由だとクォートが壊れるため）
+with open("/tmp/merged.json", "w") as f:
+    json.dump(result, f)
+print("ok")
