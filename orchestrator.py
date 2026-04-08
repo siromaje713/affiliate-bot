@@ -369,31 +369,14 @@ def run_with_timeout(label: str, fn, *args, timeout: int = AGENT_TIMEOUT, fallba
         ex.shutdown(wait=False)
 
 def generate_engagement_post() -> str:
-    """エンゲージメント投稿を生成（リンクなし・画像なし・109文字以内）"""
-    from utils.claude_cli import ask
-    pattern = random.choice(["質問型", "共感型", "気づき型", "煽り型", "日常型"])
-    print(f"[Orchestrator] エンゲージメントパターン: {pattern}")
-    prompt = (
-        "美容アカウント@riko_cosme_lab（スキンケア・美顔器メイン）のThreads投稿を1つ作って。\n\n"
-        f"スタイル: {pattern}\n"
-        "- 質問型: フォロワーに問いかける質問形式\n"
-        "- 共感型: 「わかる人いる？」のように共感を呼ぶ形式\n"
-        "- 気づき型: 最近気づいた美容の発見をシェア\n"
-        "- 煽り型: 軽く煽ってリアクションを誘う\n"
-        "- 日常型: 美容に関する日常の何気ない一コマ\n\n"
-        "ルール（厳守）:\n"
-        "- 109文字以内\n"
-        "- アフィリエイトリンク・URL・商品名なし\n"
-        "- 「続きはリプ欄」のような誘導フレーズなし\n"
-        "- 絵文字は0〜2個\n"
-        "- スキンケア・美容・コスメに関する自然な口調\n\n"
-        "本文のみ出力（説明・前置き・引用符不要）"
-    )
-    text = ask(prompt).strip()
+    """エンゲージメント投稿を生成（writer.py engage型プロンプト使用・有益情報×煽り）"""
+    # writer.run経由で黄金パターンプロンプトを呼ぶ
+    dummy_product = {"product_name": "", "keyword": "", "amazon": ""}
+    result = writer.run(dummy_product, post_type="engage")
+    if not result:
+        return ""
+    text = strip_links(result["text"]).strip()
     text = text.strip('"').strip("'").strip("「").strip("」").strip()
-    text = strip_links(text)
-    if len(text) > 109:
-        text = text[:109]
     return text
 
 
@@ -455,15 +438,19 @@ def run_pipeline(dry_run: bool = False):
         time.sleep(_jitter)
 
     counter = read_counter()
-    # 投稿比率: 10周期で3回アフィリ（30%）・7回エンゲージメント（70%）
-    is_affiliate = (counter % 10) in (0, 3, 6)
-    print(f"[Orchestrator] 投稿モード: {'affiliate' if is_affiliate else 'engagement'}（カウンター: {counter}）")
-    if not is_affiliate:
+    # 投稿比率（10サイクル）:
+    #   list型（保存リスト+アフィリプ）: 3回（counter%10 in 0,3,6）
+    #   engage型（有益情報×煽り短文・リプなし）: 7回
+    #   アフィ単体投稿: 0（停止中）アカウントパワー育成のため
+    post_type = "list" if (counter % 10) in (0, 3, 6) else "engage"
+    print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
+
+    # engage型: writerでengage本文生成→poster投稿（reply_posterは呼ばない）
+    if post_type == "engage":
         run_engagement_pipeline(dry_run=dry_run, counter=counter)
         return
 
-    post_type = "buzz" if counter % 3 == 0 else "link"
-    print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
+    # ↓以下は list 型のみ（保存リスト+アフィリプ）
 
     buzz_cache = Path("data/buzz_patterns.json")
     buzz_patterns = {}
@@ -549,6 +536,15 @@ def run_pipeline(dry_run: bool = False):
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
 
+    # list型: writerのaffiliate_keywordからアフィURLを取得（サイクル選択商品より優先）
+    aff_keyword = best_post.get("affiliate_keyword", "")
+    if aff_keyword:
+        _new_url = get_fresh_affiliate_url(aff_keyword)
+        if _new_url:
+            _aff_url = _new_url
+            _pname = aff_keyword
+            print(f"[Orchestrator] list型: affiliate_keyword「{aff_keyword}」→ {_aff_url}")
+
     print("[Orchestrator] テキスト投稿モード（画像なし・リーチ優先）")
 
     if not dry_run and random.random() < 0.3:
@@ -589,7 +585,7 @@ def run_pipeline(dry_run: bool = False):
     post_id = post_result.get("post_id")
     reply_text = f"🛒 商品詳細はこちら👇\n{_aff_url}\n#PR"
 
-    # buzz型・link型どちらも毎回アフィリエイトリプライを付ける
+    # list型のみ毎回アフィリエイトリプライを付ける（engage型はreply_poster呼ばない）
     if dry_run:
         print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
     else:

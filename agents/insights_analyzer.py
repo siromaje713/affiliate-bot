@@ -32,7 +32,7 @@ def _save_cache(data: dict):
 
 
 def fetch_own_posts() -> list:
-    """自分の投稿一覧をThreads APIで取得"""
+    """自分の投稿一覧をThreads APIで取得し、各投稿の/insightsからviews/likes/repliesを取る"""
     token = os.environ.get("THREADS_ACCESS_TOKEN")
     user_id = os.environ.get("THREADS_USER_ID")
     if not token or not user_id:
@@ -41,17 +41,48 @@ def fetch_own_posts() -> list:
 
     url = f"https://graph.threads.net/v1.0/{user_id}/threads"
     params = {
-        "fields": "id,text,timestamp,like_count,replies_count,views",
+        "fields": "id,text,timestamp,like_count,replies_count",
         "limit": 25,
         "access_token": token,
     }
     try:
         resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
-        return resp.json().get("data", [])
+        posts = resp.json().get("data", [])
     except Exception as e:
         print(f"[InsightsAnalyzer] 投稿取得エラー: {e}")
         return []
+
+    # 各投稿のinsights APIを叩いてviews取得
+    for p in posts:
+        media_id = p.get("id")
+        if not media_id:
+            continue
+        try:
+            iresp = requests.get(
+                f"https://graph.threads.net/v1.0/{media_id}/insights",
+                params={"metric": "views,likes,replies", "access_token": token},
+                timeout=10,
+            )
+            if iresp.status_code == 200:
+                for item in iresp.json().get("data", []):
+                    name = item.get("name")
+                    val = 0
+                    if "values" in item and item["values"]:
+                        val = item["values"][0].get("value", 0)
+                    elif "total_value" in item:
+                        val = item["total_value"].get("value", 0)
+                    if name == "views":
+                        p["views"] = val
+                    elif name == "likes":
+                        p["like_count"] = max(p.get("like_count", 0), val)
+                    elif name == "replies":
+                        p["replies_count"] = max(p.get("replies_count", 0), val)
+        except Exception as e:
+            print(f"[InsightsAnalyzer] insights取得失敗 {media_id}: {e}")
+        if "views" not in p:
+            p["views"] = 0
+    return posts
 
 
 def extract_win_patterns(posts: list) -> list:
@@ -86,7 +117,42 @@ def run() -> list:
     _save_cache({"win_patterns": win_patterns})
     print(f"[InsightsAnalyzer] 勝ちパターン {len(win_patterns)}件を抽出")
     for p in win_patterns:
-        print(f"  ❤️ {p['like_count']} 「{p['text'][:40]}...」")
+        print(f"  ❤️ {p['like_count']} 👁{p.get('views',0)} 「{p['text'][:40]}...」")
+
+    # views上位3件の冒頭をbuzz_patterns.jsonに「実績フック」として追記
+    try:
+        _bp_path = Path(__file__).parent.parent / "data" / "buzz_patterns.json"
+        if _bp_path.exists():
+            _bp_data = json.loads(_bp_path.read_text(encoding="utf-8"))
+        else:
+            _bp_data = {"patterns": []}
+        if not isinstance(_bp_data, dict):
+            _bp_data = {"patterns": []}
+        _existing = _bp_data.get("patterns", [])
+        if not isinstance(_existing, list):
+            _existing = []
+        # 既存の「実績フック」を一旦除外（重複防止）
+        _existing = [p for p in _existing if isinstance(p, dict) and p.get("name") != "実績フック"]
+        top_views = sorted(posts, key=lambda x: x.get("views", 0), reverse=True)[:3]
+        for tp in top_views:
+            text = tp.get("text", "")
+            if not text:
+                continue
+            head = text.split("\n")[0][:40]
+            _existing.append({
+                "name": "実績フック",
+                "hook_structure": head,
+                "ending_pattern": "",
+                "info_fact": "",
+                "example": text[:100],
+                "views": tp.get("views", 0),
+            })
+        _bp_data["patterns"] = _existing
+        _bp_path.parent.mkdir(parents=True, exist_ok=True)
+        _bp_path.write_text(json.dumps(_bp_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[InsightsAnalyzer] buzz_patterns.json に実績フック{len(top_views)}件追記")
+    except Exception as e:
+        print(f"[InsightsAnalyzer] buzz_patterns.json更新失敗: {e}")
 
     benchmark_patterns = fetch_benchmark_patterns()
 

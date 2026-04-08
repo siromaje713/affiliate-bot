@@ -15,7 +15,13 @@ VIRAL_CACHE_PATH = Path(__file__).parent / "cache" / "viral_posts_cache.json"
 BUZZ_PATTERNS_PATH = Path(__file__).parent.parent / "data" / "buzz_patterns.json"
 CACHE_TTL_HOURS = 6
 
-COMPETITOR_USERNAMES = ["popo.biyou"]
+def _load_benchmark_accounts() -> list:
+    """BENCHMARK_ACCOUNT_IDS環境変数からアカウント名/IDを読む"""
+    raw = os.getenv("BENCHMARK_ACCOUNT_IDS", "")
+    return [e.strip() for e in raw.split(",") if e.strip()]
+
+
+COMPETITOR_USERNAMES = _load_benchmark_accounts() or ["popo.biyou"]
 
 
 def _get_token() -> str:
@@ -167,13 +173,21 @@ def extract_patterns_from_viral(posts: list) -> list:
 これらを分析して、バズっている投稿の「型」をJSON形式で10〜15パターン抽出してください。
 固定のテンプレートではなく、実際の投稿から観察できる冒頭の型・感情トリガー・構成・語尾パターンを抽出すること。
 
+【追加要件】
+- 各投稿から「info_fact（有益情報の核心1文）」を抽出してパターンに含めること
+  例: 「日焼け止めは500円玉大が必要量」「洗顔後3分以内に保湿しないと水分が空気に奪われる」
+- 返信が10往復以上来るような「会話設計」（問いかけ・行動訂正・知識ギャップ）を優先する
+- 上記の実投稿パターンに加えて、2026年4月現在のThreadsで美容ジャンルでバズっている
+  フック構造を推測でさらに10パターン追加すること（合計20〜25パターン目標）
+
 {{
   "patterns": [
     {{
-      "name": "パターン名（例: 悲報系・後悔告白系など）",
-      "hook_structure": "冒頭の型（例: 悲報、〇〇してた私が△△だった）",
+      "name": "パターン名（例: 知識暴露型・行動訂正型・やり方暴露型など）",
+      "hook_structure": "冒頭の型（例: 〜って〇〇らしい）",
       "emotion_trigger": "使われている感情トリガー",
       "ending_pattern": "語尾・締め方の特徴",
+      "info_fact": "有益情報の核心1文（必須・新ネタを推測でも入れる）",
       "example": "このパターンで書いた美容投稿の例文（100文字以内）"
     }}
   ]

@@ -284,24 +284,102 @@ def generate_patterns(
 """
 
     if post_type == "engage":
-        prompt = f"""Threadsでリプライ・いいねをもらえる会話誘発投稿を6パターン生成してください。
+        # buzz_patterns.jsonからinfo_factを抽出してプロンプトに渡す
+        info_facts_section = ""
+        try:
+            _bp = _load_buzz_patterns()
+            facts = []
+            # 生JSONからinfo_factも拾う（_load_buzz_patternsは正規化で落とすため再読込）
+            if BUZZ_PATTERNS_PATH.exists():
+                _raw = json.loads(BUZZ_PATTERNS_PATH.read_text(encoding="utf-8"))
+                _patterns = _raw.get("patterns", []) if isinstance(_raw, dict) else []
+                if isinstance(_patterns, list):
+                    for p in _patterns:
+                        if isinstance(p, dict):
+                            f = p.get("info_fact") or ""
+                            if f:
+                                facts.append(str(f))
+            if facts:
+                info_facts_section = "\n【最新info_factネタ（毎回どれか1つを必ず使う・連続使用禁止）】\n" + "\n".join(f"- {x}" for x in facts[:15]) + "\n"
+        except Exception:
+            pass
 
-テーマ：美容・スキンケア・メイク全般（特定商品名は入れなくていい）
-{seasonal_info}{pattern_examples}{win_section}{competitor_section}
+        prompt = f"""Threadsで返信往復を最大化する有益情報×煽り口調の短文投稿を6パターン生成してください。
 
-生成ルール：
-- 109文字以内（必須）
-- URLや商品リンク誘導は絶対禁止
-- 「続きはリプ欄」「リプ欄」は絶対に入れない
-- 必ず質問・あるある・共感で締める（「みんなは？」「わかる人いる？」「やってる人いる？」）
+テーマ：美容・スキンケア・メイク（特定商品名は入れない）
+{seasonal_info}{info_facts_section}
+
+【目的】返信往復を最大化する。有益情報×煽り口調。
+
+【厳守ルール】
+- 50〜80文字（厳守。短く鋭く）
 - 絵文字1〜2個
-- 27歳女性の等身大・感情的な言葉遣い
-- ハッシュタグ（#）は絶対に使うな
-- 宣伝感・PR感ゼロ
-- フォロワー以外からリプライが来ることを最優先で設計する
+- リンク・商品名・「続きはリプ欄」は絶対NG
+- ハッシュタグ（#）絶対NG
+- 必ず返信を誘う問いかけで終わる
+- フォロワー以外からのリプを引き出す設計
+
+【黄金パターン（必ずこの3型のうちいずれかを使う・6パターン全体で型を散らす）】
+
+型A. 知識暴露型：
+「[事実]って[数字や根拠]。[返信誘導]？😳」
+例：「日焼け止めって量が足りてない人が9割らしい。500円玉大って聞いたことある？知ってた？😳」
+
+型B. 行動訂正型：
+「[NG行動]してる人まだいる？[正解]が正解。やってた？」
+例：「洗顔後すぐ保湿しないと肌が空気から水分奪われてく。3分以内にやってる人どのくらいいる？」
+
+型C. やり方暴露型：
+「[方法]って[意外な事実]知ってた？[返信誘導]🙌」
+例：「美容液って浸透させる方向あるの知ってた？下から上に押し込むのが正解。やってた人いる？🙌」
+
+【絶対条件】
+- 上記info_factを毎回参照して新ネタを使う
+- 同じ型を連続させない（A→B→C→A→B→C のようにバラす）
+- 例文と全く同じ文は禁止。事実部分を新ネタに差し替える
 
 6パターンをJSON配列のみで返してください：
-["投稿文1", "投稿文2", ...]"""
+["投稿文1", "投稿文2", "投稿文3", "投稿文4", "投稿文5", "投稿文6"]"""
+
+    elif post_type == "list":
+        prompt = f"""Threadsで保存・リポストされる「保存リスト型」投稿を6パターン生成してください。
+
+商品名：{product['product_name']}（本文中に出さなくてよい。アフィリエイトキーワードは別フィールドで返す）
+読者の悩み：{_target_pain}
+{seasonal_info}{win_section}{competitor_section}
+
+【目的】保存・リポスト最大化＋アフィ自然訴求
+
+【厳守ルール】
+- 冒頭1行目は「[テーマ]【保存用】」（例：「成分覚えられない人向け【保存用】」「春の毛穴対策【保存用】」）
+- 続いて空行
+- 悩み→解決策の対応表を5〜8項目（「悩み → 解決策」の形式・1行1項目）
+- 締めは煽り（例：「全部やる必要ない。今いちばん困ってる悩みだけ頭に入れよ。」「全部やらなくていい。今いちばん気になるやつだけやれ。」）
+- 109文字超えはOK（保存型なのでスレッド1/2形式可・長文歓迎）
+- リンク・URL・「続きはリプ欄」は絶対NG
+- ハッシュタグ（#）絶対NG
+
+【参考フォーマット】
+成分覚えられない人向け【保存用】
+
+毛穴 → レチノール
+ゴワつき → AHA
+毛穴詰まり → BHA
+乾燥・敏感 → セラミド
+シミ → トラネキサム酸
+皮脂・テカリ → ナイアシンアミド
+くすみ → ビタミンC
+
+全部やる必要ない。今いちばん困ってる悩みだけ頭に入れよ。
+
+【出力形式】
+6パターンを以下のJSON形式のみで返してください（説明不要）：
+{{
+  "posts": [
+    {{"text": "投稿本文1", "affiliate_keyword": "アフィURL取得用キーワード（例: メラノCC）"}},
+    {{"text": "投稿本文2", "affiliate_keyword": "..."}}
+  ]
+}}"""
 
     elif post_type == "buzz":
         prompt = f"""Threadsでバズる投稿を6パターン生成してください。
@@ -360,7 +438,11 @@ def generate_patterns(
 ["投稿文1", "投稿文2", ...]"""
 
     try:
-        return ask_json(prompt)
+        result = ask_json(prompt)
+        # list型は{"posts":[{"text":..,"affiliate_keyword":..}]}形式
+        if post_type == "list" and isinstance(result, dict):
+            return result.get("posts", [])
+        return result
     except Exception as e:
         print(f"[Writer] パターン生成エラー: {e}")
         return []
@@ -385,6 +467,60 @@ def run(
 
     history = load_history()
     best = None
+
+    # list型は{text,affiliate_keyword}のdict・109文字制限なし
+    if post_type == "list":
+        for i, item in enumerate(patterns):
+            if isinstance(item, dict):
+                text = item.get("text", "")
+                aff_kw = item.get("affiliate_keyword", "")
+            else:
+                text = str(item)
+                aff_kw = ""
+            if not text or not text.strip():
+                continue
+            sim = similarity_score(text, history)
+            if sim >= SIMILARITY_THRESHOLD:
+                print(f"[Writer] list{i+1}: 類似度{sim:.2f} → スキップ")
+                continue
+            # list型は保存型なので品質スコアを通さず長さだけチェック（500文字以内）
+            if len(text) > 500:
+                print(f"[Writer] list{i+1}: 文字数超過({len(text)}字) → スキップ")
+                continue
+            print(f"[Writer] list{i+1}: 採用候補（{len(text)}字・キーワード:{aff_kw}）")
+            if best is None:
+                best = {
+                    "text": text,
+                    "score": 100,
+                    "product": product,
+                    "post_type": post_type,
+                    "affiliate_keyword": aff_kw,
+                }
+        if best:
+            print(f"[Writer] list型: 最良パターン決定（{len(best['text'])}字）")
+            save_to_history(best["text"])
+        return best
+
+    # engage型は50〜80字、品質スコアは通さず短文ルールで採用
+    if post_type == "engage":
+        for i, text in enumerate(patterns):
+            if not isinstance(text, str):
+                continue
+            length = len(text)
+            if length < 30 or length > 100:
+                print(f"[Writer] engage{i+1}: 文字数範囲外({length}字) → スキップ")
+                continue
+            sim = similarity_score(text, history)
+            if sim >= SIMILARITY_THRESHOLD:
+                print(f"[Writer] engage{i+1}: 類似度{sim:.2f} → スキップ")
+                continue
+            print(f"[Writer] engage{i+1}: 採用候補（{length}字）")
+            if best is None:
+                best = {"text": text, "score": 100, "product": product, "post_type": post_type}
+        if best:
+            print(f"[Writer] engage型: 最良パターン決定")
+            save_to_history(best["text"])
+        return best
 
     for i, text in enumerate(patterns):
         if len(text) > 109:

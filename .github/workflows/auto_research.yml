@@ -2,7 +2,7 @@ name: Auto Research - Threads Benchmark Scraping
 
 on:
   schedule:
-    - cron: '0 23 * * 0,2,4'
+    - cron: '0 23 * * *'
   workflow_dispatch:
 
 jobs:

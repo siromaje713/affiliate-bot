@@ -14,7 +14,9 @@ load_dotenv()
 
 BASE_URL = "https://graph.threads.net/v1.0"
 ENGAGED_IDS_PATH = Path("/tmp/engaged_post_ids.json")
-MAX_REPLIES_PER_RUN = 3
+SENT_REPLIES_PATH = Path("data/sent_replies.json")
+MAX_REPLIES_PER_RUN = 5
+MIN_LIKES_THRESHOLD = 30
 
 
 def _get_token() -> str:
@@ -83,8 +85,8 @@ def _get_recent_posts(account_id: str) -> list:
     resp = requests.get(
         f"{BASE_URL}/{account_id}/threads",
         params={
-            "fields": "id,text,timestamp",
-            "limit": 5,
+            "fields": "id,text,timestamp,like_count,replies_count",
+            "limit": 10,
             "access_token": _get_token(),
         },
     )
@@ -92,20 +94,52 @@ def _get_recent_posts(account_id: str) -> list:
     return resp.json().get("data", [])
 
 
+def _load_sent_replies() -> dict:
+    """sent_replies.json: {post_id: {reply_id, replied_back: bool}}"""
+    if SENT_REPLIES_PATH.exists():
+        try:
+            return json.loads(SENT_REPLIES_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def _save_sent_replies(data: dict):
+    SENT_REPLIES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SENT_REPLIES_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _generate_empathy_reply(post_text: str) -> str:
-    prompt = f"""美容アカウント「りこ」として、以下の投稿に共感リプライを生成してください。
+    prompt = f"""美容アカウント「りこ」として、以下の投稿に短い共感リプを生成してください。
 
 投稿: {post_text[:200]}
 
-ルール:
-- 50文字以内
-- 宣伝・商品紹介は絶対にNG
-- 自然な共感・応援・励まし
-- 絵文字1〜2個
-- 親しみやすい口調
+【厳守ルール】
+- 20〜30文字（必須）
+- 共感・体験談・質問返しのいずれかのトーン
+- 宣伝・商品名・URL一切なし
+- 絵文字1個まで
+- 親しみやすいタメ口
+- 例: 「わかる！私も同じだった〜どう変わった？」「それやってみたい！何分くらいかけてる？」
 
-リプライテキストのみ返してください（説明不要）"""
-    return ask(prompt)
+リプライ本文のみ返してください（説明・引用符不要）"""
+    text = ask(prompt).strip().strip('"').strip("'").strip("「").strip("」")
+    return text
+
+
+def _generate_close_reply(my_reply: str, their_reply: str) -> str:
+    prompt = f"""自分のリプ「{my_reply}」に相手から「{their_reply[:150]}」と返信が来た。
+柔らかいクローズリプを生成してください。
+
+【厳守ルール】
+- 15〜25文字
+- 感謝・共感で会話を自然に締める
+- 質問はしない
+- 絵文字1個まで
+- 例: 「教えてくれてありがとう！参考にする🙌」
+
+リプライ本文のみ返してください（説明・引用符不要）"""
+    return ask(prompt).strip().strip('"').strip("'").strip("「").strip("」")
 
 
 def _post_reply(post_id: str, text: str) -> str:
@@ -129,14 +163,65 @@ def _post_reply(post_id: str, text: str) -> str:
     return resp.json()["id"]
 
 
+def _check_and_send_close_replies():
+    """sent_replies.jsonを見て、こちらのリプに相手から返信が来ていたらクローズリプを返す"""
+    sent = _load_sent_replies()
+    closed_count = 0
+    for post_id, info in list(sent.items()):
+        if not isinstance(info, dict):
+            continue
+        if info.get("closed"):
+            continue
+        my_reply_id = info.get("reply_id")
+        if not my_reply_id:
+            continue
+        try:
+            # 自分のリプライへの返信を取得
+            resp = requests.get(
+                f"{BASE_URL}/{my_reply_id}/replies",
+                params={"fields": "id,text,from", "access_token": _get_token()},
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                continue
+            replies = resp.json().get("data", [])
+            my_user_id = _get_user_id()
+            their_replies = [r for r in replies if str(r.get("from", {}).get("id", "")) != my_user_id]
+            if not their_replies:
+                continue
+            their_text = their_replies[0].get("text", "")
+            if not their_text:
+                continue
+            close_text = _generate_close_reply(info.get("my_reply", ""), their_text)
+            _post_reply(my_reply_id, close_text)
+            info["closed"] = True
+            info["close_reply"] = close_text
+            sent[post_id] = info
+            closed_count += 1
+            print(f"[EngageAgent] クローズリプ送信: {post_id} → {close_text}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"[EngageAgent] クローズリプ失敗 {post_id}: {e}")
+    if closed_count:
+        _save_sent_replies(sent)
+    print(f"[EngageAgent] クローズリプ {closed_count}件送信")
+
+
 def run() -> list:
-    """ベンチマークアカウントの最新投稿に最大3件共感リプライを送る"""
+    """ベンチマークアカウントのいいね30+投稿に最大5件リプ→クローズリプ自動返信"""
     benchmark_ids = _get_benchmark_ids()
     if not benchmark_ids:
         print("[EngageAgent] BENCHMARK_ACCOUNT_IDSが未設定 → スキップ")
         return []
 
+    # まず既存のリプに返信が来てたらクローズリプを返す
+    try:
+        _check_and_send_close_replies()
+    except Exception as e:
+        print(f"[EngageAgent] クローズリプ処理失敗: {e}")
+
     engaged_ids = _load_engaged_ids()
+    sent_replies = _load_sent_replies()
     results = []
 
     for account_id in benchmark_ids:
@@ -148,23 +233,36 @@ def run() -> list:
             print(f"[EngageAgent] アカウント{account_id} 取得失敗: {e}")
             continue
 
+        # いいね数でソート→上位を狙う
+        posts.sort(key=lambda x: x.get("like_count", 0), reverse=True)
+
         for post in posts:
             if len(results) >= MAX_REPLIES_PER_RUN:
                 break
             post_id = post["id"]
             post_text = post.get("text", "")
+            like_count = post.get("like_count", 0)
             if not post_text or post_id in engaged_ids:
+                continue
+            if like_count < MIN_LIKES_THRESHOLD:
                 continue
 
             try:
                 reply_text = _generate_empathy_reply(post_text)
-                _post_reply(post_id, reply_text)
+                reply_id = _post_reply(post_id, reply_text)
                 _save_engaged_id(post_id)
-                results.append({"post_id": post_id, "post_text": post_text, "reply": reply_text})
-                print(f"[EngageAgent] リプライ完了: {post_id} → {reply_text[:30]}...")
+                sent_replies[post_id] = {
+                    "reply_id": reply_id,
+                    "my_reply": reply_text,
+                    "closed": False,
+                    "post_text": post_text[:100],
+                }
+                _save_sent_replies(sent_replies)
+                results.append({"post_id": post_id, "post_text": post_text, "reply": reply_text, "likes": like_count})
+                print(f"[EngageAgent] リプ完了: ❤️{like_count} {post_id} → {reply_text[:30]}")
                 time.sleep(2)
             except Exception as e:
-                print(f"[EngageAgent] リプライ失敗 {post_id}: {e}")
+                print(f"[EngageAgent] リプ失敗 {post_id}: {e}")
 
     print(f"[EngageAgent] 完了: 計{len(results)}件")
     return results
