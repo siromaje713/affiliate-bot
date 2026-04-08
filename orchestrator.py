@@ -584,27 +584,14 @@ def run_pipeline(dry_run: bool = False):
     write_counter(counter + 1)
 
     post_id = post_result.get("post_id")
-    reply_text = f"🛒 商品詳細はこちら👇\n{_aff_url}\n#PR"
 
-    # list型のみ毎回アフィリエイトリプライを付ける（engage型はreply_poster呼ばない）
-    if dry_run:
-        print(f"[Orchestrator][DRY RUN] リプライ予定:\n{reply_text}")
-    else:
-        _save_used_url(_aff_url)
-        print(f"[Orchestrator] リプライ投稿開始: post_id={post_id}")
-        try:
-            reply_result = reply_poster.run(post_id, dry_run=False, affiliate_url=_aff_url)
-            print(f"[Orchestrator] リプライ投稿完了: {reply_result}")
-        except Exception as _reply_err:
-            print(f"[Orchestrator] リプライ投稿失敗: {_reply_err}")
-            if slack_notify:
-                slack_notify("error", f"❌ リプライ失敗\npost_id={post_id}\n{_reply_err}")
-        if slack_notify:
-            _hook = best_post["text"].split("\n")[0][:40]
-            _threads_link = f"\n🔗 https://www.threads.net/t/{post_id}" if post_id else ""
-            slack_notify("success",
-                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n🛒 {_aff_url}{_threads_link}"
-            )
+    # アフィリプ完全停止：全投稿タイプでreply_poster.run()を呼ばない
+    if not dry_run and slack_notify:
+        _hook = best_post["text"].split("\n")[0][:40]
+        _threads_link = f"\n🔗 https://www.threads.net/t/{post_id}" if post_id else ""
+        slack_notify("success",
+            f"✅ list投稿完了（アフィリプなし）\n商品: {_pname}\n{_hook}...{_threads_link}"
+        )
 
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
 
