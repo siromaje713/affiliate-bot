@@ -14,11 +14,11 @@ updates = {
     "SLACK_WEBHOOK_URL": os.environ.get("SLACK_WEBHOOK_URL", ""),
     "THREADS_TOKEN_EXPIRES_AT": os.environ.get("THREADS_TOKEN_EXPIRES_AT", ""),
 }
-existing_map.update({k: v for k, v in updates.items() if v})
+# strip()で改行・スペースを除去
+existing_map.update({k: v.strip() for k, v in updates.items() if v.strip()})
 result = [{"key": k, "value": v} for k, v in existing_map.items()]
 
 with open("/tmp/merged.json", "w") as f:
     json.dump(result, f)
 
-# デバッグ用：先頭2件だけ表示
-print(f"ok: {len(result)} vars, preview: {json.dumps(result[:2])}")
+print(f"ok: {len(result)} vars")
