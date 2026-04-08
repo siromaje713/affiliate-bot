@@ -1,5 +1,5 @@
 # affiliate-bot 現状（毎回更新）
-最終更新：2026-04-08
+最終更新：2026-04-09
 
 ## 投稿設計
 - engage型（有益情報×煽り短文）: 70%（reply_posterなし）
@@ -31,6 +31,7 @@
 - 作業ディレクトリ ~/affiliate-bot に一本化
 - sync_render_env.yml/merge_env.py 削除（env groupはRenderダッシュボードで直接管理）
 - .gitignore に .claude/settings.json と logs/ を追加
+- list型締め文を命令形→共感トーンに変更（agents/writer.py:357,373）
 
 ## 既知の問題
 - クローズリプ（相手リプ検出→自動返信）: Threads API挙動次第・Slackで要確認
