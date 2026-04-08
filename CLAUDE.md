@@ -1,54 +1,62 @@
 # affiliate-bot 現状（毎回更新）
 最終更新：2026-04-08
 
-## 投稿設計（2026-04-08更新）
-- list型（保存リスト+アフィリプ）: 30%（10サイクル中3回・counter%10 in 0,3,6）
-- engage型（有益情報×煽り）: 70%（残り7回・reply_poster呼ばない）
+## 投稿設計
+- engage型（有益情報×煽り短文）: 70%（reply_posterなし）
+- list型（保存リスト型）: 30%（reply_posterなし・アフィリプ停止中）
 - アフィ単体投稿: 停止中（アカウントパワー育成優先）
+- 起動時jitter: random.uniform(-1800, 1800) → max(0, x)（前後30分）
 
-## 次にやること
-- 投稿パフォーマンス確認（Slack通知で）
-- アカウントパワーが付いたらアフィ再開を検討
+## 投稿スタイル（黄金パターン）
+1. 知識暴露型：「[事実]って[数字/根拠]。[返信誘導]？😳」
+2. 行動訂正型：「[NG行動]してる人まだいる？[正解]が正解。やってた？」
+3. やり方暴露型：「[方法]って[意外な事実]知ってた？[返信誘導]🙌」
+4. 保存型リスト：「[テーマ]【保存用】
+悩み→解決策×5〜8項目
+全部やらなくていい。今いちばん気になるやつだけやれ。」
 
 ## 稼働状況
-- postモード cron: crn-d72ovqm3jp1c7386q0fg（JST 9/13/17/21時）
+- postモード cron: crn-d72ovqm3jp1c7386q0fg（JST 9/13/17/21時・前後30分jitter）
 - replyモード cron: crn-d741a6q4d50c73bvbavg（JST 11/15/19/23時）
 
-## 完了済み
-- Threads API連携・投稿・リプライ自動化
-- image_generator.py: Noneのみ返す（画像投稿完全停止・シャドウバン対策）
-- orchestrator.py: エンゲージメント70%/アフィリ30%・起動時ランダムsleep(0-3600秒)
-- writer.py: engage post_type追加
-- apply_research.yml: YAMLエラー修正済み
-- 作業ディレクトリ ~/affiliate-bot に一本化（~/Documents/affiliate-bot 削除済み）
-- Claude Codeログイン切れ対処: claude /login で再認証
+## 完了済み（2026-04-08）
+- 全投稿タイプのreply_poster停止（アフィリプなし）
+- engage/list型のqualityチェックスキップ（二重保証）
+- writer.py: engage・list・buzz型プロンプト刷新
+- orchestrator.py: list/engage分岐・jitter前後30分
+- buzz_researcher.py: BENCHMARK_ACCOUNT_IDSから動的読み込み
+- insights_analyzer.py: views取得追加
+- engage_agent.py: 他人投稿へ1日5件リプ・会話クローズ
+- auto_research.yml: 毎日JST 8時実行に変更
+- sync_render_env.yml: Pythonシェル変数展開バグ修正
+- 作業ディレクトリ ~/affiliate-bot に一本化
 
 ## 既知の問題
-- sync_render_env.yml: Failure（未修正）
+- クローズリプ（相手リプ検出→自動返信）: Threads API挙動次第・Slackで要確認
+- sync_render_env.yml: 修正済みだが次回日曜まで動作未確認
 
 ## 次にやること
-1. sync_render_env.yml 修正
+- Slackで投稿品質・リプ動作を確認
+- アカウントパワーが付いたらlist型にアフィリプ再開を検討
+- ベンチマークアカウントを15件に拡張（現在5件）
 
 ---
 
-# Coworkリサーチ自動学習パイプライン（2日1回）
-
-## Cowork起動時の固定プロンプト
+# Coworkの使い方
+プロンプト冒頭に以下を入れるだけでCLAUDE.mdを読める：
 ```
-docs/research_latest.json を読み込んで現状把握。
-BENCHMARK_ACCOUNT_IDSのアカウントを全件巡回して
-直近48時間のいいね100+投稿を収集。
-フックの冒頭パターン・感情トリガー・商品カテゴリをJSONで出力して
-docs/research_YYYYMMDD.jsonとしてGitHubにpushして。
+まず以下のURLのCLAUDE.mdを読んで現状を把握してから作業して。
+https://raw.githubusercontent.com/siromaje713/affiliate-bot/main/CLAUDE.md
 ```
 
-## GitHub Actions
-- apply_research.yml: docs/research_*.json push → winning_patterns.json更新 → Slack通知
-- slack_reminder.yml: 月水金日 UTC 23:00にリマインダー
+## Cowork担当タスク（毎日自動・手動不要）
+- auto_research.yml が毎日JST 8時に自動実行
+- ベンチマーク巡回→buzz_patterns.json更新→winning_patterns.json更新
+- Coworkの手動作業は不要になった
 
 ---
 
-# ベンチマークアカウント（5件）
+# ベンチマークアカウント（5件・拡張予定）
 | アカウント | いいね100+ | 特徴 |
 |-----------|-----------|------|
 | popo.biyou | 244・648 | Amazon系・垢抜け |
@@ -72,8 +80,8 @@ docs/research_YYYYMMDD.jsonとしてGitHubにpushして。
 ---
 
 # ツール運用ルール
-- Cowork：ベンチマーク巡回・docs/research_YYYYMMDD.json push
-- Claude AI（このチャット）：戦略・CLAUDE.md更新（GitHubのrawから読み込み）
+- Cowork：CLAUDE.mdのURLを冒頭に渡すだけ・手動作業不要
+- Claude AI（このチャット）：戦略・CLAUDE.md更新・GitHubのrawから読み込み
 - Claude Code：~/affiliate-bot/ で起動・コード実装・Git管理
 
 ---
