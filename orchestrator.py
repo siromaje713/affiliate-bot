@@ -431,9 +431,10 @@ def run_pipeline(dry_run: bool = False):
             slack_notify("error", "❌ ANTHROPIC_API_KEY未設定。Renderダッシュボードで設定してください")
         return
 
-    # bot判定回避: 起動時に最大1時間ランダムスリープ
+    # bot判定回避: cron時刻から前後30分ランダムスリープ（マイナスは0クランプ）
     if not dry_run:
-        _jitter = random.uniform(0, 3600)
+        _jitter = random.uniform(-1800, 1800)
+        _jitter = max(0, _jitter)  # マイナスは0にクランプ（過去には戻れないため）
         print(f"[Orchestrator] bot判定回避ジッター: {_jitter:.0f}秒スリープ")
         time.sleep(_jitter)
 
