@@ -2,7 +2,7 @@ name: Render環境変数週次同期
 
 on:
   schedule:
-    - cron: "0 1 * * 0"  # 毎週日曜 UTC 1:00 (JST 10:00)
+    - cron: "0 1 * * 0"
   workflow_dispatch:
 
 jobs:
@@ -20,43 +20,29 @@ jobs:
         run: |
           set -e
           SERVICES="crn-d72ovqm3jp1c7386q0fg crn-d741a6q4d50c73bvbavg"
-
           for SERVICE_ID in $SERVICES; do
             echo "🔄 $SERVICE_ID の環境変数を同期中..."
-
             curl -sf \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Accept: application/json" \
               "https://api.render.com/v1/services/$SERVICE_ID/env-vars" \
               > /tmp/existing.json || echo "[]" > /tmp/existing.json
-
-            MERGED=$(ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
-              THREADS_ACCESS_TOKEN="$THREADS_ACCESS_TOKEN" \
-              THREADS_USER_ID="$THREADS_USER_ID" \
-              SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL" \
-              THREADS_TOKEN_EXPIRES_AT="$THREADS_TOKEN_EXPIRES_AT" \
-              python3 - << 'PYEOF'
-import json, os
-
-with open("/tmp/existing.json") as f:
-    existing = json.load(f)
-
-existing_map = {item["envVar"]["key"]: item["envVar"]["value"] for item in existing}
-
-updates = {
-    "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
-    "THREADS_ACCESS_TOKEN": os.environ.get("THREADS_ACCESS_TOKEN", ""),
-    "THREADS_USER_ID": os.environ.get("THREADS_USER_ID", ""),
-    "SLACK_WEBHOOK_URL": os.environ.get("SLACK_WEBHOOK_URL", ""),
-    "THREADS_TOKEN_EXPIRES_AT": os.environ.get("THREADS_TOKEN_EXPIRES_AT", ""),
-}
-
-existing_map.update({k: v for k, v in updates.items() if v})
-result = [{"key": k, "value": v} for k, v in existing_map.items()]
-print(json.dumps(result))
-PYEOF
-            )
-
+            MERGED=$(python3 -c "
+          import json, os
+          with open('/tmp/existing.json') as f:
+              existing = json.load(f)
+          existing_map = {item['envVar']['key']: item['envVar']['value'] for item in existing}
+          updates = {
+              'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', ''),
+              'THREADS_ACCESS_TOKEN': os.environ.get('THREADS_ACCESS_TOKEN', ''),
+              'THREADS_USER_ID': os.environ.get('THREADS_USER_ID', ''),
+              'SLACK_WEBHOOK_URL': os.environ.get('SLACK_WEBHOOK_URL', ''),
+              'THREADS_TOKEN_EXPIRES_AT': os.environ.get('THREADS_TOKEN_EXPIRES_AT', ''),
+          }
+          existing_map.update({k: v for k, v in updates.items() if v})
+          result = [{'key': k, 'value': v} for k, v in existing_map.items()]
+          print(json.dumps(result))
+          ")
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               -X PUT \
               -H "Authorization: Bearer $RENDER_API_KEY" \
@@ -64,7 +50,6 @@ PYEOF
               -H "Accept: application/json" \
               -d "$MERGED" \
               "https://api.render.com/v1/services/$SERVICE_ID/env-vars")
-
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "201" ]; then
               echo "✅ $SERVICE_ID 同期完了 (HTTP $STATUS)"
             else
