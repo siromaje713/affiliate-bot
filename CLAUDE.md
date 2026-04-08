@@ -28,12 +28,12 @@
 - insights_analyzer.py: views取得追加
 - engage_agent.py: 他人投稿へ1日5件リプ・会話クローズ
 - auto_research.yml: 毎日JST 8時実行に変更
-- sync_render_env.yml: Pythonシェル変数展開バグ修正
 - 作業ディレクトリ ~/affiliate-bot に一本化
+- sync_render_env.yml/merge_env.py 削除（env groupはRenderダッシュボードで直接管理）
+- .gitignore に .claude/settings.json と logs/ を追加
 
 ## 既知の問題
 - クローズリプ（相手リプ検出→自動返信）: Threads API挙動次第・Slackで要確認
-- sync_render_env.yml: 修正済みだが次回日曜まで動作未確認
 
 ## 次にやること
 - Slackで投稿品質・リプ動作を確認
