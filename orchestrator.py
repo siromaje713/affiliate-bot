@@ -9,7 +9,8 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime, timedelta
 from pathlib import Path
-from agents import writer, poster, analyst, buzz_analyzer, hook_optimizer, reply_poster
+from agents import writer, poster, analyst, buzz_analyzer, hook_optimizer
+# from agents import reply_poster  # アフィリプ完全停止
 from agents import insights_analyzer, web_scraper, thread_poster, conversation_agent
 from utils import threads_api
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
@@ -546,27 +547,28 @@ def run_pipeline(dry_run: bool = False):
             _pname = aff_keyword
             print(f"[Orchestrator] list型: affiliate_keyword「{aff_keyword}」→ {_aff_url}")
 
-    print("[Orchestrator] テキスト投稿モード（画像なし・リーチ優先）")
+    print("[Orchestrator] テキスト投稿モード（画像なし・リンクなし・リーチ優先）")
 
-    if not dry_run and random.random() < 0.3:
-        print("[Orchestrator] スレッド投稿モード（30%抽選）")
-        _save_used_url(_aff_url)
-        thread_result = thread_poster.post_thread(
-            product_name=_pname,
-            hook=best_post["text"].split("\n")[0][:40],
-            affiliate_url=_aff_url,
-        )
-        write_counter(counter + 1)
-        print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
-        if slack_notify:
-            _hook = best_post["text"].split("\n")[0][:40]
-            _thread_post_id = thread_result.get("post_ids", [None])[0] if thread_result else None
-            _threads_link = f"\n🔗 https://www.threads.net/t/{_thread_post_id}" if _thread_post_id else ""
-            slack_notify("success",
-                f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n🛒 {_aff_url}{_threads_link}"
-            )
-        print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
-        return
+    # アフィリエイトURL投稿完全停止：thread_poster経由のスレッド投稿ブランチを無効化
+    # if not dry_run and random.random() < 0.3:
+    #     print("[Orchestrator] スレッド投稿モード（30%抽選）")
+    #     _save_used_url(_aff_url)
+    #     thread_result = thread_poster.post_thread(
+    #         product_name=_pname,
+    #         hook=best_post["text"].split("\n")[0][:40],
+    #         affiliate_url=_aff_url,
+    #     )
+    #     write_counter(counter + 1)
+    #     print(f"[Orchestrator] スレッド投稿完了: {thread_result}")
+    #     if slack_notify:
+    #         _hook = best_post["text"].split("\n")[0][:40]
+    #         _thread_post_id = thread_result.get("post_ids", [None])[0] if thread_result else None
+    #         _threads_link = f"\n🔗 https://www.threads.net/t/{_thread_post_id}" if _thread_post_id else ""
+    #         slack_notify("success",
+    #             f"✅ 投稿完了\n商品: {_pname}\n{_hook}...\n🛒 {_aff_url}{_threads_link}"
+    #         )
+    #     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
+    #     return
 
     try:
         post_result = poster.run(best_post, dry_run=dry_run)
