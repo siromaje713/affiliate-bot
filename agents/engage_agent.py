@@ -21,8 +21,12 @@ DYNAMIC_BENCHMARKS_PATH = Path("data/dynamic_benchmarks.json")
 MAX_REPLIES_PER_RUN = 5
 MIN_LIKES_THRESHOLD = 30
 DISCOVERY_LIMIT_PER_RUN = 5
+REVALIDATION_LIMIT_PER_RUN = 5
+REVALIDATION_STALE_DAYS = 14
 GITHUB_REPO = os.getenv("GITHUB_REPO", "siromaje713/affiliate-bot")
 DYNAMIC_BENCHMARKS_GH_PATH = "data/dynamic_benchmarks.json"
+# リプ対象から除外するusername（小文字で比較）
+ENGAGE_EXCLUDE = {"popo.biyou", "riko_cosme_lab"}
 
 
 def _get_token() -> str:
@@ -81,6 +85,9 @@ def _get_benchmark_ids() -> list:
     for a in accounts:
         uname = a.get("username", "")
         if not uname:
+            continue
+        if uname.lower() in ENGAGE_EXCLUDE:
+            print(f"[EngageAgent] 除外: {uname}")
             continue
         if uname.isdigit():
             ids.append(uname)
@@ -197,6 +204,25 @@ def _fetch_user_top_likes(account_id: str) -> int:
         return 0
 
 
+def _fetch_user_14day_top_likes(account_id: str) -> int:
+    """直近14日の最大like_count"""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+    try:
+        posts = _get_recent_posts(account_id)
+        top = 0
+        for p in posts:
+            ts = p.get("timestamp", "")
+            try:
+                post_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                if post_dt >= cutoff:
+                    top = max(top, int(p.get("like_count", 0) or 0))
+            except Exception:
+                continue
+        return top
+    except Exception:
+        return 0
+
+
 def _fetch_user_30day_likes_sum(account_id: str) -> int:
     """直近30日のlike_count合計"""
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
@@ -246,22 +272,65 @@ def _get_post_repliers(post_id: str) -> list:
 
 
 def _discover_new_benchmarks(engaged_post_ids: list):
-    """リプした投稿のリプ者から新規ベンチマーク候補を発見"""
-    if not engaged_post_ids:
-        print("[EngageAgent] discover: 対象投稿なし → スキップ")
-        return
+    """リプした投稿のリプ者から新規ベンチマーク候補を発見＋既存の再検証"""
     data = _load_dynamic_benchmarks()
     accounts = data.get("accounts", [])
-    known = {a.get("username", "").lower() for a in accounts}
     min_likes = int(data.get("min_likes_threshold", 100))
     max_pool = int(data.get("max_pool_size", 50))
     today = datetime.now().strftime("%Y-%m-%d")
+    drop_messages = []
 
+    # --- 再検証: last_checkedが14日以上前のアカウント ---
+    stale_cutoff = datetime.now() - timedelta(days=REVALIDATION_STALE_DAYS)
+    revalidated = 0
+    kept_accounts = []
+    for a in accounts:
+        if revalidated >= REVALIDATION_LIMIT_PER_RUN:
+            kept_accounts.append(a)
+            continue
+        last_checked_str = a.get("last_checked", "")
+        try:
+            last_dt = datetime.strptime(last_checked_str, "%Y-%m-%d") if last_checked_str else None
+        except Exception:
+            last_dt = None
+        if not last_dt or last_dt >= stale_cutoff:
+            kept_accounts.append(a)
+            continue
+
+        uname = a.get("username", "")
+        uid = _lookup_user_id(uname)
+        time.sleep(1)
+        if not uid:
+            kept_accounts.append(a)
+            continue
+        top14 = _fetch_user_14day_top_likes(uid)
+        time.sleep(1)
+        revalidated += 1
+        a["last_checked"] = today
+        a["top_likes"] = max(int(a.get("top_likes", 0) or 0), top14)
+        if top14 < min_likes:
+            if a.get("permanent"):
+                print(f"[EngageAgent] revalidate (permanent keep): {uname} 14d_top={top14}")
+                kept_accounts.append(a)
+            else:
+                drop_messages.append(f"{uname} を削除しました。理由: {REVALIDATION_STALE_DAYS}日間いいね{min_likes}+なし")
+                print(f"[EngageAgent] revalidate drop: {uname} 14d_top={top14}")
+        else:
+            print(f"[EngageAgent] revalidate pass: {uname} 14d_top={top14}")
+            kept_accounts.append(a)
+    accounts = kept_accounts
+    if revalidated:
+        print(f"[EngageAgent] revalidate完了: {revalidated}件検証")
+
+    # --- 新規発見: リプした投稿のリプ者から ---
+    known = {a.get("username", "").lower() for a in accounts}
     candidates = []
     seen_cand = set()
     for post_id in engaged_post_ids:
         for r in _get_post_repliers(post_id):
             uname_lc = r["username"].lower()
+            if uname_lc in ENGAGE_EXCLUDE:
+                continue
             if uname_lc in known or uname_lc in seen_cand:
                 continue
             seen_cand.add(uname_lc)
@@ -289,7 +358,7 @@ def _discover_new_benchmarks(engaged_post_ids: list):
         added += 1
         print(f"[EngageAgent] discover add: {cand['username']} top_likes={top_likes}")
 
-    # 上限超過時は非permanent分を直近30日いいね合計が低い順にドロップ
+    # --- 上限超過時は非permanent分を直近30日いいね合計が低い順にドロップ ---
     if len(accounts) > max_pool:
         perm = [a for a in accounts if a.get("permanent")]
         non_perm = [a for a in accounts if not a.get("permanent")]
@@ -304,13 +373,25 @@ def _discover_new_benchmarks(engaged_post_ids: list):
         for a in kept:
             a.pop("_drop_score", None)
         for a in dropped:
-            print(f"[EngageAgent] discover drop: {a.get('username')} 30d_likes={a.get('_drop_score', 0)}")
+            uname = a.get("username", "")
+            score = a.get("_drop_score", 0)
+            print(f"[EngageAgent] pool drop: {uname} 30d_likes={score}")
+            drop_messages.append(f"{uname} を削除しました。理由: pool上限超過（30日いいね合計 {score}）")
         accounts = perm + kept
         print(f"[EngageAgent] pool trimmed → {len(accounts)}件")
 
     data["accounts"] = accounts
     _save_dynamic_benchmarks(data)
     print(f"[EngageAgent] discover完了: 新規{added}件追加 / pool合計{len(accounts)}件")
+
+    # --- Slack通知: ドロップしたアカウント ---
+    if drop_messages:
+        try:
+            from slack_notify import notify as slack_notify
+            for msg in drop_messages:
+                slack_notify("info", f"🗑 {msg}")
+        except Exception as e:
+            print(f"[EngageAgent] slack notify失敗: {e}")
 
 
 def _load_sent_replies() -> dict:
