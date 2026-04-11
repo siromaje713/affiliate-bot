@@ -1,0 +1,41 @@
+{
+  "accounts": [
+    {
+      "username": "popo.biyou",
+      "added_at": "2026-04-11",
+      "permanent": true,
+      "top_likes": 0,
+      "last_checked": "2026-04-11"
+    },
+    {
+      "username": "km.room",
+      "added_at": "2026-04-11",
+      "permanent": true,
+      "top_likes": 0,
+      "last_checked": "2026-04-11"
+    },
+    {
+      "username": "momo_cosme_b",
+      "added_at": "2026-04-11",
+      "permanent": true,
+      "top_likes": 0,
+      "last_checked": "2026-04-11"
+    },
+    {
+      "username": "kajierimakeup",
+      "added_at": "2026-04-11",
+      "permanent": true,
+      "top_likes": 0,
+      "last_checked": "2026-04-11"
+    },
+    {
+      "username": "ior_coco",
+      "added_at": "2026-04-11",
+      "permanent": true,
+      "top_likes": 0,
+      "last_checked": "2026-04-11"
+    }
+  ],
+  "max_pool_size": 50,
+  "min_likes_threshold": 100
+}
