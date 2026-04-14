@@ -2,8 +2,8 @@ name: Threadsトークン月次自動更新
 
 on:
   schedule:
-    - cron: "0 2 1 * *"  # 毎月1日 UTC 2:00 (JST 11:00)
-  workflow_dispatch:     # 手動実行も可能
+    - cron: "0 2 1 * *" # 毎月1日 UTC 2:00 (JST 11:00)
+  workflow_dispatch: # 手動実行も可能
 
 jobs:
   refresh-token:

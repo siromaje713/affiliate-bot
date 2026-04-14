@@ -2,7 +2,7 @@ name: Weekly Buzz Research
 
 on:
   schedule:
-    - cron: '0 20 */3 * *'  # 3日ごとUTC 20:00 = JST 05:00
+    - cron: "0 20 */3 * *" # 3日ごとUTC 20:00 = JST 05:00
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install -r requirements.txt

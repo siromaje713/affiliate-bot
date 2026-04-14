@@ -1,27 +1,55 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git status)", "Bash(git log*)", "Bash(git diff*)",
-      "Bash(git add*)", "Bash(git commit*)", "Bash(git push*)",
-      "Bash(ls*)", "Bash(cat*)", "Bash(mkdir*)", "Bash(cp*)",
-      "Bash(python3 *)", "Bash(pytest *)", "Bash(make *)"
+      "Bash(git status)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(ls*)",
+      "Bash(cat*)",
+      "Bash(mkdir*)",
+      "Bash(cp*)",
+      "Bash(python3 *)",
+      "Bash(pytest *)",
+      "Bash(make *)"
     ],
     "deny": [
-      "Bash(curl *)", "Bash(wget *)", "Bash(nc *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(nc *)",
       "Bash(rm -rf *)",
-      "Read(./.env)", "Read(./.env.*)",
-      "Read(./secrets/)", "Read(./config/credentials.json)",
-      "Read(**/password)", "Read(**/secret)"
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/)",
+      "Read(./config/credentials.json)",
+      "Read(**/password)",
+      "Read(**/secret)"
     ]
   },
   "hooks": {
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{"type": "command", "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"}]
-    }],
-    "PreToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{"type": "command", "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qiE 'rm -rf|drop table|truncate' && echo 'BLOCKED: destructive command' && exit 1 || exit 0"}]
-    }]
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qiE 'rm -rf|drop table|truncate' && echo 'BLOCKED: destructive command' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ]
   }
 }

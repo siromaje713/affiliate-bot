@@ -6,14 +6,14 @@ services:
   - type: cron
     name: affiliate-bot-9am
     runtime: python
-    schedule: "0 0 * * *"   # JST 9:00
+    schedule: "0 0 * * *" # JST 9:00
     buildCommand: pip install -r requirements.txt
     startCommand: python orchestrator.py --mode post
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: GH_PAT
-        sync: false   # Renderダッシュボードで設定
+        sync: false # Renderダッシュボードで設定
       - key: THREADS_ACCESS_TOKEN
         sync: false
       - key: THREADS_USER_ID
@@ -22,7 +22,7 @@ services:
   - type: cron
     name: affiliate-bot-6pm
     runtime: python
-    schedule: "0 9 * * *"   # JST 18:00
+    schedule: "0 9 * * *" # JST 18:00
     buildCommand: pip install -r requirements.txt
     startCommand: python orchestrator.py --mode post
     envVars:
@@ -38,7 +38,7 @@ services:
   - type: cron
     name: affiliate-bot-9pm
     runtime: python
-    schedule: "0 12 * * *"  # JST 21:00
+    schedule: "0 12 * * *" # JST 21:00
     buildCommand: pip install -r requirements.txt
     startCommand: python orchestrator.py --mode post
     envVars:
