@@ -13,7 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
-from utils.claude_cli import ask
+from utils.claude_cli import ask, MODEL_OPUS
 
 def load_current_claude_md() -> str:
     path = PROJECT_ROOT / "CLAUDE.md"
@@ -57,7 +57,7 @@ def update_claude_md():
 CLAUDE.mdの内容のみを出力してください（説明文不要）。"""
 
     try:
-        new_md = ask(prompt)
+        new_md = ask(prompt, model=MODEL_OPUS)
         # コードブロックで囲まれていたら除去
         if new_md.startswith("```"):
             lines = new_md.split("\n")

@@ -530,6 +530,7 @@ def run() -> list:
 
     engaged_ids = _load_engaged_ids()
     sent_replies = _load_sent_replies()
+    engaged_ids.update(sent_replies.keys())
     results = []
 
     for account_id in benchmark_ids:

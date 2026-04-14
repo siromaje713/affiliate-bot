@@ -44,20 +44,28 @@ def _save_replied_id(reply_id: str):
 
 
 def _get_own_recent_posts() -> list:
-    """直近24hの自分の投稿一覧を取得する"""
-    since = datetime.now(timezone.utc) - timedelta(hours=24)
-    since_ts = int(since.timestamp())
-
+    """直近24hの自分の投稿一覧を取得する（APIのsince非対応のためPython側でフィルタ）"""
     resp = requests.get(
         f"{BASE_URL}/{_get_user_id()}/threads",
         params={
             "fields": "id,text,timestamp",
-            "since": since_ts,
+            "limit": 10,
             "access_token": _get_token(),
         },
     )
     resp.raise_for_status()
-    return resp.json().get("data", [])
+    posts = resp.json().get("data", [])
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    recent = []
+    for p in posts:
+        ts = p.get("timestamp", "")
+        try:
+            post_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            if post_time >= cutoff:
+                recent.append(p)
+        except Exception:
+            continue
+    return recent
 
 
 def _get_own_username() -> str:

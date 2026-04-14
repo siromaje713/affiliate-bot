@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from utils.claude_cli import ask_json
+from utils.claude_cli import ask_json, MODEL_OPUS
 
 SEASONAL_KEYWORDS = {
     1:  ["乾燥対策", "保湿", "冬肌ケア", "ヒアルロン酸", "バリア機能"],
@@ -106,7 +106,7 @@ JSON配列のみで返してください：
   }}
 ]"""
     try:
-        return ask_json(prompt)
+        return ask_json(prompt, model=MODEL_OPUS)
     except Exception as e:
         print(f"[Researcher] アイデア生成エラー: {e}")
         return []

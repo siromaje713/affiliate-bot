@@ -623,6 +623,11 @@ def run_insights():
     count = len(results) if results else 0
     print(f"[Insights] {count}件の勝ちパターンを更新完了")
     print(f"[Insights] 保存先: agents/cache/own_insights.json")
+    if slack_notify and results:
+        lines = ["📊 投稿パフォーマンス TOP3"]
+        for i, p in enumerate(results[:3], 1):
+            lines.append(f"{i}. 👁{p.get('views',0)} ❤️{p.get('like_count',0)} 「{p.get('text','')[:35]}...」")
+        slack_notify("success", "\n".join(lines))
 
 
 def run_engage():
@@ -664,7 +669,27 @@ if __name__ == "__main__":
         elif args.mode == "analytics":
             run_analytics()
         elif args.mode == "reply":
-            conversation_agent.run_conversation()
+            # 1. 他人のバズ投稿にリプ
+            try:
+                run_engage()
+            except Exception as e:
+                print(f"[Orchestrator] engage失敗（続行）: {e}")
+                if slack_notify:
+                    slack_notify("error", f"⚠️ engage失敗: {str(e)[:150]}")
+            # 2. 自分の投稿への返信対応
+            try:
+                conversation_agent.run_conversation()
+            except Exception as e:
+                print(f"[Orchestrator] conversation失敗（続行）: {e}")
+                if slack_notify:
+                    slack_notify("error", f"⚠️ conversation失敗: {str(e)[:150]}")
+            # 3. 表示回数分析→勝ちパターン更新
+            try:
+                run_insights()
+            except Exception as e:
+                print(f"[Orchestrator] insights失敗（続行）: {e}")
+                if slack_notify:
+                    slack_notify("error", f"⚠️ insights失敗: {str(e)[:150]}")
         elif args.mode == "research":
             run_research()
         elif args.mode == "insights":

@@ -6,7 +6,7 @@ import requests
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-from utils.claude_cli import ask_json
+from utils.claude_cli import ask_json, MODEL_OPUS
 
 load_dotenv()
 
@@ -196,7 +196,7 @@ def extract_patterns_from_viral(posts: list) -> list:
 JSONのみ返してください（説明不要）。"""
 
     try:
-        result = ask_json(prompt)
+        result = ask_json(prompt, model=MODEL_OPUS)
         patterns = result.get("patterns", [])
         print(f"[BuzzResearcher] {len(patterns)}パターン動的抽出完了")
 

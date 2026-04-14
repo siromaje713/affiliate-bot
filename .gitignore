@@ -3,3 +3,5 @@ CLAUDE.local.md
 .env.*
 .claude/settings.json
 logs/
+__pycache__/
+.pytest_cache/

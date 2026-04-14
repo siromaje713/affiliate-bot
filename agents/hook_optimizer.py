@@ -1,6 +1,6 @@
 """フック最適化エージェント：4パターン生成・重み付きスコアリング・再生成"""
 import re
-from utils.claude_cli import ask_json
+from utils.claude_cli import ask_json, MODEL_OPUS
 from agents.buzz_analyzer import HOOK_SCORE_WEIGHTS
 
 MAX_RETRIES = 2
@@ -77,7 +77,7 @@ JSONのみで返してください（説明不要）：
   {{"type": "共感・悩み型", "hook": "フック文", "score": スコア(0-10), "reason": "1文で理由"}},
   {{"type": "実体験型", "hook": "フック文", "score": スコア(0-10), "reason": "1文で理由"}}
 ]"""
-    return ask_json(prompt)
+    return ask_json(prompt, model=MODEL_OPUS)
 
 
 def run(product: dict, buzz_patterns: dict) -> dict:

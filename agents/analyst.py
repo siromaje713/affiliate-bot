@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 from utils import threads_api
-from utils.claude_cli import ask_json
+from utils.claude_cli import ask_json, MODEL_OPUS
 
 LOG_PATH = Path(__file__).parent.parent / "data" / "post_log.json"
 REPORT_PATH = Path(__file__).parent.parent / "data" / "analytics_report.json"
@@ -57,7 +57,7 @@ JSONのみで返してください（説明不要）：
 {{"top_patterns": ["パターン1", "パターン2"], "improvements": ["改善案1", "改善案2", "改善案3"], "tomorrow_theme": "明日のテーマ"}}"""
 
     try:
-        return ask_json(prompt)
+        return ask_json(prompt, model=MODEL_OPUS)
     except Exception as e:
         print(f"[Analyst] レポート生成エラー: {e}")
         return {"summary": "解析失敗", "improvements": [], "tomorrow_theme": ""}

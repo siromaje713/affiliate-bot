@@ -1,6 +1,6 @@
 """投稿品質スコアリング（claude -p 経由）"""
 import json
-from utils.claude_cli import ask_json
+from utils.claude_cli import ask_json, MODEL_OPUS
 
 
 def score_post(text: str) -> dict:
@@ -26,7 +26,7 @@ JSON形式のみで返してください（説明不要）：
 {{"score": 数値, "reason": "理由を1文で", "improvements": ["改善点1", "改善点2"]}}"""
 
     try:
-        data = ask_json(prompt)
+        data = ask_json(prompt, model=MODEL_OPUS)
         data["pass"] = data.get("score", 0) >= 7.0
         return data
     except Exception as e:
