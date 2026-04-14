@@ -1,5 +1,9 @@
 name: CI
-on: push
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -10,4 +14,8 @@ jobs:
           python-version: '3.9'
       - run: pip install -r requirements.txt pytest
       - run: python -m py_compile orchestrator.py
+      - run: |
+          for f in agents/*.py scripts/*.py; do
+            [ -f "$f" ] && python -m py_compile "$f"
+          done
       - run: pytest tests/ -v
