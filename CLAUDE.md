@@ -44,6 +44,11 @@
 - git push --force / rm -rf 禁止
 - APIキー・トークンをログ・ファイル・チャットに出すな
 
+## Render Cron 追加
+- daily_report: `0 16 * * *` UTC（= JST 1時）→ Slackに日次パフォーマンスレポート
+  - フォロワー前日比 / 今日の投稿metrics / エンゲージリプ / 投稿型TOP3(7日)
+  - 観察ポイント: 勝ち型把握、減衰すべき型の特定、投稿バランス調整指針
+
 ## 環境
 
 - Render cron: post=crn-d72ovqm3jp1c7386q0fg / reply=crn-d741a6q4d50c73bvbavg
