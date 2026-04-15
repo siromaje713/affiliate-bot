@@ -519,20 +519,131 @@ def _check_and_send_close_replies():
     print(f"[EngageAgent] クローズリプ {closed_count}件送信")
 
 
-def run() -> list:
-    """アカウントパワー構築フェーズ（リンク停止中）: クローズリプのみ実行。
-    ベンチマーク垢へのリプ・新規発見はリンク投稿再開時まで停止。"""
-    # ベンチマーク垢リプは停止中（リンク投稿再開時に復活）
-    # benchmark_ids = _get_benchmark_ids()
-    # if not benchmark_ids:
-    #     print("[EngageAgent] BENCHMARK_ACCOUNT_IDSが未設定 → スキップ")
-    #     return []
+def _get_own_recent_posts_for_engage() -> list:
+    """直近24hの自分の投稿一覧（リプ者探索用）"""
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/{_get_user_id()}/threads",
+            params={"fields": "id,timestamp", "limit": 10, "access_token": _get_token()},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        posts = resp.json().get("data", [])
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        recent = []
+        for p in posts:
+            ts = p.get("timestamp", "")
+            try:
+                post_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                if post_time >= cutoff:
+                    recent.append(p)
+            except Exception:
+                continue
+        return recent
+    except Exception as e:
+        print(f"[EngageAgent] 自分の投稿取得失敗: {type(e).__name__}")
+        return []
 
-    # 自分の既存リプに相手から返信が来てたらクローズリプを返す
+
+def _get_user_recent_posts(user_id: str, limit: int = 5) -> list:
+    """指定ユーザーの最新投稿を取得"""
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/{user_id}/threads",
+            params={
+                "fields": "id,text,like_count,replies_count,timestamp",
+                "limit": limit,
+                "access_token": _get_token(),
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json().get("data", [])
+    except Exception as e:
+        print(f"[EngageAgent] ユーザー{user_id}投稿取得失敗: {type(e).__name__}")
+        return []
+
+
+def run() -> list:
+    """クローズリプ → 自分の投稿のリプ者の最新投稿にリプ（トレンド対応）"""
+    # 1. クローズリプ処理
     try:
         _check_and_send_close_replies()
     except Exception as e:
         print(f"[EngageAgent] クローズリプ処理失敗: {type(e).__name__}")
 
-    print("[EngageAgent] 完了: クローズリプのみ実行（ベンチマーク垢リプは停止中）")
-    return []
+    engaged_ids = _load_engaged_ids()
+    sent_replies = _load_sent_replies()
+    engaged_ids.update(sent_replies.keys())
+    results = []
+
+    # 2. 自分の直近投稿のリプ者を収集
+    own_posts = _get_own_recent_posts_for_engage()
+    repliers = []
+    seen_user_ids = set()
+    my_id = _get_user_id()
+    for p in own_posts:
+        for r in _get_post_repliers(p["id"]):
+            uid = r.get("id", "")
+            uname = (r.get("username", "") or "").lower()
+            if not uid or uid == my_id or uid in seen_user_ids:
+                continue
+            if uname in ENGAGE_EXCLUDE:
+                continue
+            seen_user_ids.add(uid)
+            repliers.append(r)
+        time.sleep(1)
+
+    print(f"[EngageAgent] リプ者候補: {len(repliers)}件")
+
+    # 3. 各リプ者の最新投稿を取得→いいね/リプ数で選定
+    candidate_posts = []
+    for r in repliers:
+        posts = _get_user_recent_posts(r["id"], limit=5)
+        for post in posts:
+            pid = post.get("id", "")
+            text = post.get("text", "")
+            if not pid or not text or pid in engaged_ids:
+                continue
+            candidate_posts.append({
+                "post_id": pid,
+                "post_text": text,
+                "like_count": post.get("like_count", 0),
+                "replies_count": post.get("replies_count", 0),
+                "username": r.get("username", ""),
+            })
+        time.sleep(1)
+
+    # いいね+リプ数が多い順に並べて上位にリプ
+    candidate_posts.sort(key=lambda x: x["like_count"] + x["replies_count"], reverse=True)
+
+    # 4. 上位にリプ
+    for cand in candidate_posts:
+        if len(results) >= MAX_REPLIES_PER_RUN:
+            break
+        post_id = cand["post_id"]
+        try:
+            reply_text = _generate_empathy_reply(cand["post_text"])
+            reply_id = _post_reply(post_id, reply_text)
+            _save_engaged_id(post_id)
+            sent_replies[post_id] = {
+                "reply_id": reply_id,
+                "my_reply": reply_text,
+                "closed": False,
+                "post_text": cand["post_text"][:100],
+            }
+            _save_sent_replies(sent_replies)
+            results.append({
+                "post_id": post_id,
+                "post_text": cand["post_text"],
+                "reply": reply_text,
+                "likes": cand["like_count"],
+                "username": cand["username"],
+            })
+            print(f"[EngageAgent] リプ完了: @{cand['username']} ❤️{cand['like_count']} → {reply_text[:30]}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"[EngageAgent] リプ失敗 {post_id}: {type(e).__name__}")
+
+    print(f"[EngageAgent] 完了: 計{len(results)}件")
+    return results
