@@ -3,7 +3,7 @@ import json
 import random
 from datetime import datetime
 from pathlib import Path
-from utils.claude_cli import ask, ask_json
+from utils.claude_cli import ask, ask_json, ask_short
 from utils.quality_scorer import score_post, similarity_score
 
 HISTORY_PATH = Path("/tmp/post_history.json")
@@ -655,7 +655,7 @@ def generate_self_reply(original_text: str) -> str:
 
 補足リプ本文のみ返してください（説明・カギ括弧不要）。"""
     try:
-        text = ask(prompt).strip().strip("「」\"'")
+        text = ask_short(prompt).strip().strip("「」\"'")
         return text
     except Exception as e:
         print(f"[Writer] 自己リプ生成失敗: {type(e).__name__}")

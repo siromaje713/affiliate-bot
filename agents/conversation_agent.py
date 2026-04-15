@@ -6,7 +6,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dotenv import load_dotenv
-from utils.claude_cli import ask
+from utils.claude_cli import ask_short
 
 load_dotenv()
 
@@ -107,7 +107,7 @@ def _generate_reply(original_text: str, reply_text: str, username: str) -> str:
 
 返信テキストのみ返してください（説明不要）"""
 
-    return ask(prompt)
+    return ask_short(prompt)
 
 
 def _post_reply(post_id: str, text: str) -> str:
