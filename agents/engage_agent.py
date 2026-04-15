@@ -55,7 +55,7 @@ def _lookup_user_id(username: str):
                 print(f"[EngageAgent] {username} → ID: {u['id']}")
                 return u["id"]
     except Exception as e:
-        print(f"[EngageAgent] ユーザーID検索失敗 {username}: {e}")
+        print(f"[EngageAgent] ユーザーID検索失敗 {username}: {type(e).__name__}")
     return None
 
 
@@ -89,12 +89,16 @@ def _get_benchmark_ids() -> list:
         if uname.lower() in ENGAGE_EXCLUDE:
             print(f"[EngageAgent] 除外: {uname}")
             continue
+        # 優先: user_idフィールド（手動設定済み数値ID）
+        uid = str(a.get("user_id", "") or "").strip()
+        if uid.isdigit():
+            ids.append(uid)
+            continue
         if uname.isdigit():
             ids.append(uname)
-        else:
-            uid = _lookup_user_id(uname)
-            if uid:
-                ids.append(uid)
+            continue
+        # 検索API(/search)は400エラーのため使わない。未設定はスキップ
+        print(f"[EngageAgent] user_id未設定: {uname} → dynamic_benchmarks.jsonに数値IDを手動設定してください")
     return ids
 
 
@@ -149,7 +153,7 @@ def _load_dynamic_benchmarks() -> dict:
             else:
                 print(f"[EngageAgent] GitHub load非200: {r.status_code}")
         except Exception as e:
-            print(f"[EngageAgent] GitHub load例外: {e}")
+            print(f"[EngageAgent] GitHub load例外: {type(e).__name__}")
     if DYNAMIC_BENCHMARKS_PATH.exists():
         try:
             return json.loads(DYNAMIC_BENCHMARKS_PATH.read_text(encoding="utf-8"))
@@ -189,7 +193,7 @@ def _save_dynamic_benchmarks(data: dict):
         else:
             print(f"[EngageAgent] GitHub push失敗: {r.status_code} {r.text[:200]}")
     except Exception as e:
-        print(f"[EngageAgent] GitHub push例外: {e}")
+        print(f"[EngageAgent] GitHub push例外: {type(e).__name__}")
 
 
 def _fetch_user_top_likes(account_id: str) -> int:
@@ -200,7 +204,7 @@ def _fetch_user_top_likes(account_id: str) -> int:
             return 0
         return max(int(p.get("like_count", 0) or 0) for p in posts)
     except Exception as e:
-        print(f"[EngageAgent] top_likes取得失敗 {account_id}: {e}")
+        print(f"[EngageAgent] top_likes取得失敗 {account_id}: {type(e).__name__}")
         return 0
 
 
@@ -267,7 +271,7 @@ def _get_post_repliers(post_id: str) -> list:
             repliers.append({"id": rid, "username": uname})
         return repliers
     except Exception as e:
-        print(f"[EngageAgent] replies取得失敗 {post_id}: {e}")
+        print(f"[EngageAgent] replies取得失敗 {post_id}: {type(e).__name__}")
         return []
 
 
@@ -391,7 +395,7 @@ def _discover_new_benchmarks(engaged_post_ids: list):
             for msg in drop_messages:
                 slack_notify("info", f"🗑 {msg}")
         except Exception as e:
-            print(f"[EngageAgent] slack notify失敗: {e}")
+            print(f"[EngageAgent] slack notify失敗: {type(e).__name__}")
 
 
 def _load_sent_replies() -> dict:
@@ -509,7 +513,7 @@ def _check_and_send_close_replies():
             print(f"[EngageAgent] クローズリプ送信: {post_id} → {close_text}")
             time.sleep(2)
         except Exception as e:
-            print(f"[EngageAgent] クローズリプ失敗 {post_id}: {e}")
+            print(f"[EngageAgent] クローズリプ失敗 {post_id}: {type(e).__name__}")
     if closed_count:
         _save_sent_replies(sent)
     print(f"[EngageAgent] クローズリプ {closed_count}件送信")
@@ -526,7 +530,7 @@ def run() -> list:
     try:
         _check_and_send_close_replies()
     except Exception as e:
-        print(f"[EngageAgent] クローズリプ処理失敗: {e}")
+        print(f"[EngageAgent] クローズリプ処理失敗: {type(e).__name__}")
 
     engaged_ids = _load_engaged_ids()
     sent_replies = _load_sent_replies()
@@ -539,7 +543,7 @@ def run() -> list:
         try:
             posts = _get_recent_posts(account_id)
         except Exception as e:
-            print(f"[EngageAgent] アカウント{account_id} 取得失敗: {e}")
+            print(f"[EngageAgent] アカウント{account_id} 取得失敗: {type(e).__name__}")
             continue
 
         # いいね数でソート→上位を狙う
@@ -571,7 +575,7 @@ def run() -> list:
                 print(f"[EngageAgent] リプ完了: ❤️{like_count} {post_id} → {reply_text[:30]}")
                 time.sleep(2)
             except Exception as e:
-                print(f"[EngageAgent] リプ失敗 {post_id}: {e}")
+                print(f"[EngageAgent] リプ失敗 {post_id}: {type(e).__name__}")
 
     print(f"[EngageAgent] 完了: 計{len(results)}件")
 
@@ -580,6 +584,6 @@ def run() -> list:
         engaged_post_ids = [r["post_id"] for r in results if r.get("post_id")]
         _discover_new_benchmarks(engaged_post_ids)
     except Exception as e:
-        print(f"[EngageAgent] discover処理失敗: {e}")
+        print(f"[EngageAgent] discover処理失敗: {type(e).__name__}")
 
     return results

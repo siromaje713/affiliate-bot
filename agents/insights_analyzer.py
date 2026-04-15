@@ -50,7 +50,7 @@ def fetch_own_posts() -> list:
         resp.raise_for_status()
         posts = resp.json().get("data", [])
     except Exception as e:
-        print(f"[InsightsAnalyzer] 投稿取得エラー: {e}")
+        print(f"[InsightsAnalyzer] 投稿取得エラー: {type(e).__name__}")
         return []
 
     # 各投稿のinsights APIを叩いてviews取得
@@ -79,7 +79,7 @@ def fetch_own_posts() -> list:
                     elif name == "replies":
                         p["replies_count"] = max(p.get("replies_count", 0), val)
         except Exception as e:
-            print(f"[InsightsAnalyzer] insights取得失敗 {media_id}: {e}")
+            print(f"[InsightsAnalyzer] insights取得失敗 {media_id}: {type(e).__name__}")
         if "views" not in p:
             p["views"] = 0
     return posts
@@ -152,7 +152,7 @@ def run() -> list:
         _bp_path.write_text(json.dumps(_bp_data, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[InsightsAnalyzer] buzz_patterns.json に実績フック{len(top_views)}件追記")
     except Exception as e:
-        print(f"[InsightsAnalyzer] buzz_patterns.json更新失敗: {e}")
+        print(f"[InsightsAnalyzer] buzz_patterns.json更新失敗: {type(e).__name__}")
 
     benchmark_patterns = fetch_benchmark_patterns()
 
@@ -168,7 +168,7 @@ def run() -> list:
         from github_sync import save_to_github
         save_to_github("winning_patterns", all_patterns, "auto: update winning_patterns")
     except Exception as _e:
-        print(f"[InsightsAnalyzer] GitHub sync skipped: {_e}")
+        print(f"[InsightsAnalyzer] GitHub sync skipped: {type(_e).__name__}")
     print(f"[InsightsAnalyzer] winning_patterns.json に 自分{min(len(win_patterns),5)}件+ベンチマーク{len(benchmark_patterns)}件 書き出し完了")
     return win_patterns
 
@@ -186,7 +186,7 @@ def _lookup_user_id(username: str, token: str) -> str:
             if u.get("username", "").lower() == username.lower():
                 return u["id"]
     except Exception as e:
-        print(f"[InsightsAnalyzer] ユーザーID検索失敗 {username}: {e}")
+        print(f"[InsightsAnalyzer] ユーザーID検索失敗 {username}: {type(e).__name__}")
     return ""
 
 
@@ -203,9 +203,11 @@ def fetch_benchmark_patterns() -> list:
 
     results = []
     for account in accounts:
-        user_id = account if account.isdigit() else _lookup_user_id(account, token)
-        if not user_id:
-            print(f"[InsightsAnalyzer] {account}: ID取得失敗 → スキップ")
+        if account.isdigit():
+            user_id = account
+        else:
+            # 検索API(/search)は400エラーのため使わない
+            print(f"[InsightsAnalyzer] {account}: 数値IDではないためスキップ（dynamic_benchmarks.jsonのuser_idに手動設定）")
             continue
         try:
             resp = requests.get(
@@ -231,7 +233,7 @@ def fetch_benchmark_patterns() -> list:
                     hit += 1
             print(f"[InsightsAnalyzer] {account}: {hit}件（いいね{BENCHMARK_LIKE_THRESHOLD}+）取得")
         except Exception as e:
-            print(f"[InsightsAnalyzer] {account}: 取得失敗 {e}")
+            print(f"[InsightsAnalyzer] {account}: 取得失敗 {type(e).__name__}")
 
     results.sort(key=lambda x: x["like_count"], reverse=True)
     return results

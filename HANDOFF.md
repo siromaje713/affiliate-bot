@@ -1,6 +1,7 @@
 # HANDOFF 2026-04-15
 
 ## 今日やったこと
+
 - CLAUDE.md完全書き直し（ゴールツリー型55行）
 - docs/3層構造（raw/wiki/outputs + pipeline.csv + outputs.csv）
 - tests/基盤（conftest.py + test_orchestrator.py + test_utils.py・24テスト）
@@ -15,6 +16,7 @@
 - settings.json禁止リスト+Hooks追加
 
 ## 次セッションでやること
+
 1. Slackでreply cronの3連実行（engage→conversation→insights）を確認
 2. 4サイクル Compile実装（apply_research.yml→wiki自動更新）
 3. 4サイクル Query実装（orchestrator→pipeline.csv参照）
