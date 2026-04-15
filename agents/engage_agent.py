@@ -520,70 +520,19 @@ def _check_and_send_close_replies():
 
 
 def run() -> list:
-    """ベンチマークアカウントのいいね30+投稿に最大5件リプ→クローズリプ自動返信"""
-    benchmark_ids = _get_benchmark_ids()
-    if not benchmark_ids:
-        print("[EngageAgent] BENCHMARK_ACCOUNT_IDSが未設定 → スキップ")
-        return []
+    """アカウントパワー構築フェーズ（リンク停止中）: クローズリプのみ実行。
+    ベンチマーク垢へのリプ・新規発見はリンク投稿再開時まで停止。"""
+    # ベンチマーク垢リプは停止中（リンク投稿再開時に復活）
+    # benchmark_ids = _get_benchmark_ids()
+    # if not benchmark_ids:
+    #     print("[EngageAgent] BENCHMARK_ACCOUNT_IDSが未設定 → スキップ")
+    #     return []
 
-    # まず既存のリプに返信が来てたらクローズリプを返す
+    # 自分の既存リプに相手から返信が来てたらクローズリプを返す
     try:
         _check_and_send_close_replies()
     except Exception as e:
         print(f"[EngageAgent] クローズリプ処理失敗: {type(e).__name__}")
 
-    engaged_ids = _load_engaged_ids()
-    sent_replies = _load_sent_replies()
-    engaged_ids.update(sent_replies.keys())
-    results = []
-
-    for account_id in benchmark_ids:
-        if len(results) >= MAX_REPLIES_PER_RUN:
-            break
-        try:
-            posts = _get_recent_posts(account_id)
-        except Exception as e:
-            print(f"[EngageAgent] アカウント{account_id} 取得失敗: {type(e).__name__}")
-            continue
-
-        # いいね数でソート→上位を狙う
-        posts.sort(key=lambda x: x.get("like_count", 0), reverse=True)
-
-        for post in posts:
-            if len(results) >= MAX_REPLIES_PER_RUN:
-                break
-            post_id = post["id"]
-            post_text = post.get("text", "")
-            like_count = post.get("like_count", 0)
-            if not post_text or post_id in engaged_ids:
-                continue
-            if like_count < MIN_LIKES_THRESHOLD:
-                continue
-
-            try:
-                reply_text = _generate_empathy_reply(post_text)
-                reply_id = _post_reply(post_id, reply_text)
-                _save_engaged_id(post_id)
-                sent_replies[post_id] = {
-                    "reply_id": reply_id,
-                    "my_reply": reply_text,
-                    "closed": False,
-                    "post_text": post_text[:100],
-                }
-                _save_sent_replies(sent_replies)
-                results.append({"post_id": post_id, "post_text": post_text, "reply": reply_text, "likes": like_count})
-                print(f"[EngageAgent] リプ完了: ❤️{like_count} {post_id} → {reply_text[:30]}")
-                time.sleep(2)
-            except Exception as e:
-                print(f"[EngageAgent] リプ失敗 {post_id}: {type(e).__name__}")
-
-    print(f"[EngageAgent] 完了: 計{len(results)}件")
-
-    # 新規ベンチマーク発見（リプした投稿のリプ者から）
-    try:
-        engaged_post_ids = [r["post_id"] for r in results if r.get("post_id")]
-        _discover_new_benchmarks(engaged_post_ids)
-    except Exception as e:
-        print(f"[EngageAgent] discover処理失敗: {type(e).__name__}")
-
-    return results
+    print("[EngageAgent] 完了: クローズリプのみ実行（ベンチマーク垢リプは停止中）")
+    return []

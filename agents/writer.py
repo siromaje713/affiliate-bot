@@ -305,10 +305,23 @@ def generate_patterns(
         except Exception:
             pass
 
+        own_insights_section = ""
+        if win_patterns:
+            sorted_wins = sorted(win_patterns, key=lambda p: p.get("views", 0), reverse=True)[:3]
+            if sorted_wins:
+                lines = [
+                    f"  ・👁{p.get('views',0)} ❤️{p.get('like_count',0)} 「{(p.get('text','') or '')[:60]}」"
+                    for p in sorted_wins
+                ]
+                own_insights_section = (
+                    "\n【自分の高パフォーマンス投稿 TOP3（構造・トーン・トピックを参考にしつつ、新しいネタで生成しろ）】\n"
+                    + "\n".join(lines) + "\n"
+                )
+
         prompt = f"""Threadsで返信往復を最大化する有益情報×煽り口調の短文投稿を6パターン生成してください。
 
 テーマ：美容・スキンケア・メイク（特定商品名は入れない）
-{info_facts_section}
+{info_facts_section}{own_insights_section}
 
 【目的】返信往復を最大化する。有益情報×煽り口調。
 

@@ -631,15 +631,13 @@ def run_insights():
 
 
 def run_engage():
-    """ベンチマークアカウントの最新投稿に共感リプライ（エンゲージメント強化）"""
+    """アカウントパワー構築フェーズ: クローズリプのみ実行（ベンチマーク垢リプは停止中）"""
     from agents import engage_agent
-    print("[Engage] エンゲージ開始...")
-    results = engage_agent.run()
-    if slack_notify and results:
-        for r in results:
-            snippet = r["post_text"][:30]
-            slack_notify("success", f"💬 エンゲージ完了\n{snippet}...\nリプ: {r['reply']}")
-    print(f"[Engage] {len(results)}件完了")
+    print("[Engage] クローズリプ処理開始...")
+    engage_agent.run()
+    if slack_notify:
+        slack_notify("success", "🔁 クローズリプ処理完了")
+    print("[Engage] クローズリプ処理完了")
 
 
 def _check_token_expiry():
