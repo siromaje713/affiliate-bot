@@ -58,6 +58,32 @@ def ask(prompt: str, retries: int = MAX_RETRIES, model: str = MODEL_SONNET) -> s
     raise RuntimeError(f"[ClaudeCLI] {retries}回リトライ失敗: {last_err}")
 
 
+def ask_short(prompt: str, model: str = MODEL_SONNET, retries: int = MAX_RETRIES) -> str:
+    """短文用ask。max_tokens=256でリプライ生成等に使う。"""
+    last_err = None
+    for attempt in range(retries):
+        try:
+            response = _get_client().messages.create(
+                model=model,
+                max_tokens=256,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text.strip()
+        except anthropic.APITimeoutError as e:
+            last_err = e
+            time.sleep(5 * (attempt + 1))
+        except anthropic.RateLimitError as e:
+            last_err = e
+            time.sleep(15 * (attempt + 1))
+        except anthropic.APIConnectionError as e:
+            last_err = e
+            time.sleep(10 * (attempt + 1))
+        except Exception as e:
+            print(f"[ClaudeCLI] ask_short予期せぬエラー: {e}")
+            raise
+    raise RuntimeError(f"[ClaudeCLI] ask_short {retries}回リトライ失敗: {last_err}")
+
+
 def ask_json(prompt: str, model: str = MODEL_SONNET) -> any:
     """JSONを返すプロンプトを送り、パース済みオブジェクトで返す"""
     raw = ask(prompt, model=model)
