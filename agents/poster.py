@@ -65,6 +65,7 @@ def post_now(post_data: dict) -> dict:
         "text": text,
         "score": post_data.get("score"),
         "product": post_data.get("product", {}).get("product_name"),
+        "post_type": post_data.get("post_type"),
         "posted_at": datetime.now().isoformat(),
     }
     save_log(entry)
