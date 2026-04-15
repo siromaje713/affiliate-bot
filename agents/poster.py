@@ -73,6 +73,19 @@ def post_now(post_data: dict) -> dict:
     return entry
 
 
+def post_self_reply(reply_to_id: str, text: str) -> str:
+    """自分の投稿に対して補足リプを投稿。リプのpost_idを返す。失敗時は空文字。"""
+    try:
+        container_id = threads_api.create_post_container(text, reply_to_id=reply_to_id)
+        time.sleep(3)
+        reply_post_id = threads_api.publish_post(container_id)
+        print(f"[Poster] 自己リプ完了: {reply_post_id}")
+        return reply_post_id
+    except Exception as e:
+        print(f"[Poster] 自己リプ失敗: {type(e).__name__}")
+        return ""
+
+
 def run(post_data: dict, dry_run: bool = False) -> dict:
     """
     ポスター実行。

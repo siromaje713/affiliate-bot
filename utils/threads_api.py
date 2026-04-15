@@ -42,8 +42,8 @@ def get_amazon_image_url(asin: str):
     return None
 
 
-def create_post_container(text: str, image_url: str = None) -> str:
-    """投稿コンテナを作成してIDを返す。image_urlがあれば画像投稿になる"""
+def create_post_container(text: str, image_url: str = None, reply_to_id: str = None) -> str:
+    """投稿コンテナを作成してIDを返す。image_urlがあれば画像投稿・reply_to_idがあればリプ扱い"""
     user_id = get_user_id()
     token = get_token()
     params = {
@@ -53,6 +53,8 @@ def create_post_container(text: str, image_url: str = None) -> str:
     }
     if image_url:
         params["image_url"] = image_url
+    if reply_to_id:
+        params["reply_to_id"] = reply_to_id
     resp = requests.post(
         f"{BASE_URL}/{user_id}/threads",
         params=params,

@@ -407,6 +407,8 @@ def run_engagement_pipeline(dry_run: bool = False, counter: int = 0):
                 _link = f"\n🔗 https://www.threads.net/t/{post_id}" if post_id else ""
                 slack_notify("success", f"💬 エンゲージメント投稿完了\n{eng_text}{_link}")
             print(f"[Orchestrator] エンゲージメント投稿完了: {post_id}")
+            if post_id:
+                _post_self_reply_after(post_id, eng_text)
         except Exception as e:
             print(f"[Orchestrator] エンゲージメント投稿失敗: {e}")
             if slack_notify:
@@ -595,6 +597,9 @@ def run_pipeline(dry_run: bool = False):
             f"✅ list投稿完了（アフィリプなし）\n商品: {_pname}\n{_hook}...{_threads_link}"
         )
 
+    if not dry_run and post_id:
+        _post_self_reply_after(post_id, best_post["text"])
+
     print(f"\n[Orchestrator] 完了（合計 {time.time() - t_start:.0f}秒）")
 
 def run_analytics():
@@ -614,6 +619,19 @@ def run_research():
     patterns = context.get("patterns", [])
     print(f"[Research] {len(patterns)}件のパターンを取得・保存完了")
     print(f"[Research] 保存先: data/buzz_patterns.json")
+
+
+def _post_self_reply_after(post_id: str, original_text: str):
+    """投稿直後の自己リプ（補足コメント）を投稿"""
+    try:
+        reply_text = writer.generate_self_reply(original_text)
+        if not reply_text:
+            return
+        reply_id = poster.post_self_reply(post_id, reply_text)
+        if reply_id and slack_notify:
+            slack_notify("success", f"💬 補足リプ: {reply_text[:30]}")
+    except Exception as e:
+        print(f"[Orchestrator] 自己リプ処理失敗: {type(e).__name__}")
 
 
 def run_insights():

@@ -3,7 +3,7 @@ import json
 import random
 from datetime import datetime
 from pathlib import Path
-from utils.claude_cli import ask_json
+from utils.claude_cli import ask, ask_json
 from utils.quality_scorer import score_post, similarity_score
 
 HISTORY_PATH = Path("/tmp/post_history.json")
@@ -637,3 +637,26 @@ def run(
         print("[Writer] 品質基準を満たすパターンなし")
 
     return best
+
+
+def generate_self_reply(original_text: str) -> str:
+    """投稿直後の自己リプ（補足コメント）を1件生成する。50-80文字・宣伝NG。"""
+    prompt = f"""以下のThreads投稿に対して、本文では書ききれなかった補足情報を1つだけリプとして書いてください。
+
+【元投稿】
+{original_text}
+
+【厳守ルール】
+- 50〜80文字
+- 具体例・数字・体験談のどれかを必ず入れる
+- 宣伝・商品名プッシュ・リンク・ハッシュタグは絶対NG
+- 一人称は「わたし」。友達にLINEするノリ
+- 絵文字1個まで
+
+補足リプ本文のみ返してください（説明・カギ括弧不要）。"""
+    try:
+        text = ask(prompt).strip().strip("「」\"'")
+        return text
+    except Exception as e:
+        print(f"[Writer] 自己リプ生成失敗: {type(e).__name__}")
+        return ""
