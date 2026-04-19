@@ -390,9 +390,11 @@ def run_engagement_pipeline(dry_run: bool = False, counter: int = 0):
         timeout=60, fallback=None,
     )
     if not eng_text:
-        print("[Orchestrator] エンゲージメント投稿生成失敗")
+        print("[Orchestrator] エンゲージメント投稿生成失敗（3 call全失敗）")
         if slack_notify:
-            slack_notify("error", "🚫 エンゲージメント投稿生成失敗")
+            slack_notify("error", "🚫 Engage Writer 3 call全失敗・プロセス異常終了")
+        if not dry_run:
+            sys.exit(1)
         return
     print(f"[Orchestrator] エンゲージメント本文（{len(eng_text)}字）:\n{eng_text}")
     eng_post = {"text": eng_text}
@@ -442,12 +444,12 @@ def run_pipeline(dry_run: bool = False):
         time.sleep(_jitter)
 
     counter = read_counter()
-    # 投稿比率（10サイクル）:
-    #   list型（保存リスト+アフィリプ）: 3回（counter%10 in 0,3,6）
-    #   engage型（有益情報×煽り短文・リプなし）: 7回
-    #   アフィ単体投稿: 0（停止中）アカウントパワー育成のため
-    post_type = "list" if (counter % 10) in (0, 3, 6) else "engage"
-    print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter}）")
+    # 投稿比率: engage 70% / list 30%（ランダム抽選）
+    #   list型: 姉シリーズ or 保存型（109字以内・3 call逐次生成）
+    #   engage型: 8型から3型ランダム（109字以内・3 call逐次生成）
+    #   アフィ単体投稿は停止中（アカウントパワー育成フェーズ）
+    post_type = "engage" if random.random() < 0.7 else "list"
+    print(f"[Orchestrator] 投稿タイプ: {post_type}（カウンター: {counter} / 70%engage+30%list抽選）")
 
     # engage型: writerでengage本文生成→poster投稿（reply_posterは呼ばない）
     if post_type == "engage":
@@ -531,11 +533,12 @@ def run_pipeline(dry_run: bool = False):
         best_post = result
 
     if not best_post:
-        print("[Orchestrator] 品質基準を満たす投稿が生成できませんでした")
+        print("[Orchestrator] 品質基準を満たす投稿が生成できませんでした（3 call全失敗）")
         if slack_notify:
-            slack_notify("error", f"🚫 Writer失敗: 投稿スキップ\n商品: {_pname}\nhook_text: {hook_text}")
+            slack_notify("error", f"🚫 Writer3 call全失敗・プロセス異常終了\n商品: {_pname}\nhook_text: {hook_text}")
         if not dry_run:
-            return
+            sys.exit(1)
+        return
 
     best_post["text"] = strip_links(best_post["text"])
     print(f"[Orchestrator] 本文（リンクなし）:\n{best_post['text']}")
