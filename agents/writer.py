@@ -3,13 +3,69 @@ import json
 import random
 from datetime import datetime
 from pathlib import Path
-from utils.claude_cli import ask, ask_json, ask_short
+from utils.claude_cli import ask, ask_json, ask_short, ask_plain
 from utils.quality_scorer import score_post, similarity_score
 
 HISTORY_PATH = Path("/tmp/post_history.json")
 BUZZ_PATTERNS_PATH = Path(__file__).parent.parent / "data" / "buzz_patterns.json"
+RAW_LOG_DIR = Path(__file__).parent.parent / "data" / "llm_raw_logs"
 MAX_HISTORY = 100
 SIMILARITY_THRESHOLD = 0.6
+MAX_POST_CHARS = 109  # Threads投稿ルール（posting-rules.md）
+PREAMBLE_PREFIXES = ("こちら", "以下", "投稿案", "いかがでしょう", "ご要望", "承知", "了解")
+MARKDOWN_PREFIXES = ("```", "#", "---")
+
+# list型・姉シリーズのテーマ候補（毎回3つランダム選出・1 callに1テーマ）
+ANE_THEMES = [
+    "スキンケア", "コスメ", "生活習慣", "ヘアケア", "ボディケア",
+    "食事・インナーケア", "メイク", "ダイエット・体型管理", "睡眠・回復", "メンタル・ストレスケア",
+]
+
+# list型・保存型のテーマ候補
+SAVE_THEMES = [
+    "毛穴ケア", "乾燥対策", "敏感肌ケア", "UV対策", "ニキビ対策",
+    "くすみ対策", "ヘアケア", "メイク直し", "リップケア", "睡眠ケア",
+]
+
+# engage型の型定義（109字以内に収まる型のみ採用・G/Jは150〜300字なので除外）
+ENGAGE_TYPES = {
+    "A": {
+        "name": "知識暴露型",
+        "pattern": "「[事実]って[数字/根拠]。[返信誘導]？😳」",
+        "example": "日焼け止め、量足りてない人9割らしい。知ってた？😳",
+        "length": "25〜80字",
+    },
+    "B": {
+        "name": "行動訂正型",
+        "pattern": "「[NG行動]してる人まだいる？[正解]が正解。やってた？」",
+        "example": "洗顔後すぐ保湿しないとダメ。3分以内にやってる？",
+        "length": "25〜80字",
+    },
+    "C": {
+        "name": "やり方暴露型",
+        "pattern": "「[方法]って[意外な事実]知ってた？[返信誘導]🙌」",
+        "example": "美容液って下から上に押し込むのが正解って知ってた？🙌",
+        "length": "25〜80字",
+    },
+    "H": {
+        "name": "独白・本音型",
+        "pattern": "「正直に言う。わたし[自虐/失敗/本音]だった。気づいたのが[学び]。同じ人いる？」",
+        "example": "正直、化粧水ケチってたら夕方カピカピだった。今は倍つけてる。同じ人いる？",
+        "length": "80〜109字",
+    },
+    "I": {
+        "name": "論争型",
+        "pattern": "「[賛否分かれるテーマ]って[立場表明]だと思う。これ言うと怒る人いるよね。でも[根拠]。どう思う？」",
+        "example": "化粧水いらない説、わたしは反対。乾燥肌が救われたのは確かに化粧水。どう思う？",
+        "length": "80〜109字",
+    },
+    "K": {
+        "name": "姉ショート型",
+        "pattern": "「姉に[衝撃の一言]って言われた。調べたら[事実]で震えた。」",
+        "example": "姉に「夜更かしで肌が老ける」って言われた。調べたら22時以降で糖化3倍で震えた。",
+        "length": "30〜60字",
+    },
+}
 
 # フォールバック用パターン（buzz_patterns.jsonが空/取得失敗時に使用）
 _FALLBACK_PATTERNS = [
@@ -183,13 +239,154 @@ def get_pattern_examples() -> str:
         "後悔回避 / 好奇心ギャップ / 逆説・常識覆し / 数字の具体性 / ビフォーアフター\n"
         f"{winning_section}"
     )
+def validate_post(text: str) -> tuple[bool, str]:
+    """投稿本文の最小バリデーション。返値: (OK/NG, 理由文字列)。"""
+    if not text or not text.strip():
+        return False, "空文字"
+    t = text.strip()
+    if len(t) > MAX_POST_CHARS:
+        return False, f"{len(t)}字（{MAX_POST_CHARS}字超過）"
+    for p in PREAMBLE_PREFIXES:
+        if t.startswith(p):
+            return False, f"前置き検出「{p}」"
+    for p in MARKDOWN_PREFIXES:
+        if t.startswith(p):
+            return False, f"マークダウン検出「{p}」"
+    return True, "OK"
+
+
+def _clean_response(raw: str) -> str:
+    """LLM応答の前後空白・引用符・コードフェンスを除去。"""
+    t = raw.strip()
+    # コードフェンス除去
+    if t.startswith("```"):
+        lines = t.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        t = "\n".join(lines).strip()
+    # 前後の引用符除去
+    for q in ('"', "'", "「", "」"):
+        t = t.strip(q)
+    return t.strip()
+
+
+def _save_raw_log(label: str, idx: int, prompt: str, raw: str) -> None:
+    """生応答をdata/llm_raw_logs/に保存。デバッグ用。失敗しても呼び出し側は継続。"""
+    try:
+        RAW_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fpath = RAW_LOG_DIR / f"{ts}_{label}_{idx}.txt"
+        fpath.write_text(
+            f"[PROMPT]\n{prompt}\n\n[RAW]\n{raw}\n",
+            encoding="utf-8",
+        )
+    except Exception as e:
+        print(f"[Writer] raw_log保存失敗: {type(e).__name__}")
+
+
+def build_ane_prompt(theme: str) -> str:
+    """姉シリーズ1件用プロンプト。1テーマのみ渡す。"""
+    return (
+        f"27歳「わたし」が皮膚科クリニック勤務の姉（32歳・看護師）から仕込まれた"
+        f"{theme}のコツを1件だけThreads投稿にする。\n\n"
+        "【姉】何百人の肌を見てきたプロ。プチプラもデパコスも成分で判断。妹に口うるさい。\n"
+        "【文体】一人称「わたし」。友達にLINEするノリ。絵文字1〜2個。\n"
+        "【構成】姉起点のフック（「姉が〜」「姉に〜って言われた」等で始める）"
+        "→ 具体的な数字や手順 → 締めは共感/問いかけ/姉への愛情ツッコミのどれか。\n"
+        f"【厳守】{MAX_POST_CHARS}字以内。押し売り・商品名プッシュ禁止。"
+        "リンク・URL・ハッシュタグ・「続きはリプ欄」禁止。\n\n"
+        "本文のみ出力。前置き・説明・JSON・マークダウン・引用符で囲むの一切禁止。"
+    )
+
+
+def build_save_prompt(theme: str) -> str:
+    """保存型1件用プロンプト。1テーマのみ渡す。"""
+    return (
+        f"27歳美容オタク「わたし」が{theme}の「保存用まとめ」を1件だけThreads投稿にする。\n\n"
+        "【文体】一人称「わたし」。友達にLINEするノリ。絵文字1〜2個。\n"
+        f"【構成】冒頭に「{theme}【保存用】」→ 悩み→解決策 を2〜3項目（1行1項目・矢印→で区切る）"
+        "→ 締めは共感か背中押し。\n"
+        f"【厳守】{MAX_POST_CHARS}字以内。押し売り・商品名プッシュ禁止。"
+        "リンク・URL・ハッシュタグ・「続きはリプ欄」禁止。\n\n"
+        "本文のみ出力。前置き・説明・JSON・マークダウン・引用符で囲むの一切禁止。"
+    )
+
+
+def build_engage_prompt(type_key: str) -> str:
+    """engage型1件用プロンプト。1型のみ渡す。"""
+    td = ENGAGE_TYPES[type_key]
+    return (
+        f"27歳「わたし」が美容トピックで返信が集まる短文を1件だけThreads投稿にする。\n\n"
+        f"【型】{td['name']}：{td['pattern']}\n"
+        f"【例】{td['example']}\n"
+        f"【文字数目安】{td['length']}\n\n"
+        "【文体】友達にLINEするノリ。絵文字1〜2個。例文と全く同じ文は禁止、ネタを差し替える。\n"
+        f"【厳守】{MAX_POST_CHARS}字以内。商品名プッシュ・リンク・URL・ハッシュタグ・「続きはリプ欄」禁止。\n\n"
+        "本文のみ出力。前置き・説明・JSON・マークダウン・引用符で囲むの一切禁止。"
+    )
+
+
+def _generate_from_prompts(prompts: list, label: str, max_tokens: int = 200) -> list:
+    """プロンプトリストを逐次呼び出しし、バリデーション通過分だけ返す。
+
+    3 call全失敗でも例外は上げない。空リストを返す。呼び出し側で判断する。
+    """
+    accepted = []
+    for i, prompt in enumerate(prompts):
+        raw = ""
+        try:
+            raw = ask_plain(prompt, max_tokens=max_tokens)
+        except Exception as e:
+            print(f"[Writer] {label}{i+1}: API失敗 → {type(e).__name__}: {str(e)[:120]}")
+            _save_raw_log(label, i, prompt, f"[EXCEPTION] {type(e).__name__}: {e}")
+            continue
+        _save_raw_log(label, i, prompt, raw)
+        cleaned = _clean_response(raw)
+        ok, reason = validate_post(cleaned)
+        if ok:
+            print(f"[Writer] {label}{i+1}: 採用（{len(cleaned)}字）")
+            accepted.append(cleaned)
+        else:
+            print(f"[Writer] {label}{i+1}: バリデーション失敗 → {reason} / raw頭: {raw[:50]!r}")
+    return accepted
+
+
 def generate_patterns(
     product: dict,
     hook=None,
     win_patterns=None,
     competitor_posts=None,
     post_type: str = "link",
-) -> list[str]:
+) -> list:
+    # list型: 姉シリーズ/保存型をランダム選択・3テーマに対し3 call逐次実行
+    if post_type == "list":
+        if random.random() < 0.5:
+            subtype = "ane"
+            print("[Writer] list型サブタイプ: 姉シリーズ")
+            themes = random.sample(ANE_THEMES, 3)
+            prompts = [build_ane_prompt(t) for t in themes]
+            label = "list_ane"
+        else:
+            subtype = "save"
+            print("[Writer] list型サブタイプ: 保存型")
+            themes = random.sample(SAVE_THEMES, 3)
+            prompts = [build_save_prompt(t) for t in themes]
+            label = "list_save"
+        texts = _generate_from_prompts(prompts, label, max_tokens=200)
+        # 後処理で affiliate_keyword を埋める（保存型は product名、姉シリーズは空）
+        aff_kw = product.get("product_name", "") if subtype == "save" else ""
+        return [{"text": t, "affiliate_keyword": aff_kw} for t in texts]
+
+    # engage型: 6型からランダム3型選出・3 call逐次実行
+    if post_type == "engage":
+        type_keys = random.sample(list(ENGAGE_TYPES.keys()), 3)
+        print(f"[Writer] engage型: 選出型 {', '.join(type_keys)}")
+        prompts = [build_engage_prompt(k) for k in type_keys]
+        return _generate_from_prompts(prompts, "engage", max_tokens=200)
+
+    # 以降は buzz/link 型（production未使用・触らない）
     hook_instruction = (
         f"冒頭1行は必ずこのフックで始めること：「{hook}」" if hook else ""
     )
@@ -284,190 +481,7 @@ def generate_patterns(
 ✅ 27歳女性の等身大・感情的な言葉遣い
 """
 
-    if post_type == "engage":
-        # buzz_patterns.jsonからinfo_factを抽出してプロンプトに渡す
-        info_facts_section = ""
-        try:
-            _bp = _load_buzz_patterns()
-            facts = []
-            # 生JSONからinfo_factも拾う（_load_buzz_patternsは正規化で落とすため再読込）
-            if BUZZ_PATTERNS_PATH.exists():
-                _raw = json.loads(BUZZ_PATTERNS_PATH.read_text(encoding="utf-8"))
-                _patterns = _raw.get("patterns", []) if isinstance(_raw, dict) else []
-                if isinstance(_patterns, list):
-                    for p in _patterns:
-                        if isinstance(p, dict):
-                            f = p.get("info_fact") or ""
-                            if f:
-                                facts.append(str(f))
-            if facts:
-                info_facts_section = "\n【最新info_factネタ（毎回どれか1つを必ず使う・連続使用禁止）】\n" + "\n".join(f"- {x}" for x in facts[:15]) + "\n"
-        except Exception:
-            pass
-
-        own_insights_section = ""
-        if win_patterns:
-            sorted_wins = sorted(win_patterns, key=lambda p: p.get("views", 0), reverse=True)[:3]
-            if sorted_wins:
-                lines = [
-                    f"  ・👁{p.get('views',0)} ❤️{p.get('like_count',0)} 「{(p.get('text','') or '')[:60]}」"
-                    for p in sorted_wins
-                ]
-                own_insights_section = (
-                    "\n【自分の高パフォーマンス投稿 TOP3（構造・トーン・トピックを参考にしつつ、新しいネタで生成しろ）】\n"
-                    + "\n".join(lines) + "\n"
-                )
-
-        _TYPE_DEFS = {
-            "A": ("型A. 知識暴露型：「[事実]って[数字/根拠]。[返信誘導]？😳」\n例：「日焼け止め、量足りてない人9割らしい。知ってた？😳」", "25〜80字"),
-            "B": ("型B. 行動訂正型：「[NG行動]してる人まだいる？[正解]が正解。やってた？」\n例：「洗顔後すぐ保湿しないとダメ。3分以内にやってる？」", "25〜80字"),
-            "C": ("型C. やり方暴露型：「[方法]って[意外な事実]知ってた？[返信誘導]🙌」\n例：「美容液って下から上に押し込むのが正解って知ってた？🙌」", "25〜80字"),
-            "G": ("型G. 断言命令型（長文）：「[テーマ]で[年代]が絶対やるべきこと。①[命令]②[命令]③[命令]④[命令]⑤[命令]。全部やれとは言わない、1つだけ今日からやれ。」", "150〜300字"),
-            "H": ("型H. 独白・本音型：「正直に言う。わたし[自虐/失敗/本音]だった。で気づいたのが[学び]。同じ人いるよね、絶対。」", "80〜150字"),
-            "I": ("型I. 論争型：「[賛否分かれるテーマ]って[立場表明]だと思うんだけど、これ言うと怒る人いるよね。でも[根拠]。どう思う？」", "80〜150字"),
-            "J": ("型J. 生活全体型：「[美容×ライフスタイル]の話。[美容だけじゃなく生活習慣・メンタル・食事を絡めた独白]。結局キレイになるって[哲学的な締め]。」", "150〜300字"),
-            "K": ("型K. 姉ショート型：「姉に[衝撃の一言]って言われた。調べたら[事実]で震えた。」", "30〜60字"),
-        }
-        _ALL_TYPES = ["A", "B", "C", "G", "H", "I", "J", "K"]
-        _selected = random.sample(_ALL_TYPES, 3)
-        _type_section = "\n\n".join(_TYPE_DEFS[t][0] for t in _selected)
-        _length_rules = "\n".join(f"- 型{t}: {_TYPE_DEFS[t][1]}" for t in _selected)
-        _output_example = ", ".join(f'"型{t}投稿"' for t in _selected)
-
-        prompt = f"""Threadsで返信往復を最大化する有益情報×煽り口調の投稿を3パターン生成してください。
-
-テーマ：美容全般＋今話題のトレンドに美容を絡める（SNSで流行ってること・芸能・季節イベント・新商品の噂など）
-{info_facts_section}{own_insights_section}
-
-【目的】返信往復を最大化する。有益情報×煽り口調／断言／独白／論争。
-
-【厳守ルール】
-- 絵文字1〜2個
-- リンク・商品名・「続きはリプ欄」は絶対NG
-- ハッシュタグ（#）絶対NG
-- フォロワー以外からのリプを引き出す設計
-- 3パターンのトピックは必ず全部バラけさせる（同じ成分・同じ悩みを重複させるな）
-- 季節ネタは3パターン中1つまで。残り2つは通年ネタ
-- 今日のトレンド・時事ネタがあればそれを絡めた投稿を1〜2パターン含めろ（芸能・SNSで流行ってること・話題のニュースに美容を絡める）
-- 質問で終わらなくてもいい（断言・命令・独白で締めるのもOK）
-
-【8型からランダム3型を選んで生成（毎回バラけさせる・本回の選出: {", ".join(_selected)}）】
-
-{_type_section}
-
-【文字数ルール（選ばれた型に合わせて厳守）】
-{_length_rules}
-
-【絶対条件】
-- 上記3型（{", ".join(_selected)}）を各1パターンずつ生成（同じ型を2回使うな）
-- 型G/Jは150〜300字（長文OK）・型H/Iは80〜150字・型A/B/C/Kは25〜80字
-- info_factが渡されていれば毎回参照して新ネタを使う
-- 例文と全く同じ文は禁止。事実部分を新ネタに差し替える
-
-3パターンをJSON配列のみで返してください：
-[{_output_example}]"""
-
-    elif post_type == "list":
-        # list型30%枠の中で50%を姉シリーズ、50%を既存の保存リスト型に振り分け
-        if random.random() < 0.5:
-            print("[Writer] list型サブタイプ: 姉シリーズ")
-            prompt = f"""Threadsで保存・共感される「姉シリーズ」投稿を3パターン生成してください。
-
-【コンセプト】
-27歳の「りこ」が、皮膚科クリニック勤務の姉（32歳・看護師/美容カウンセラー）の実体験・職場知識・アドバイスを引用する形の投稿。
-姉=皮膚科で何百人の肌を見てきたプロ。医師ではないが現場の実践知識が豊富。プチプラもデパコスも成分で判断する派。妹に口うるさくアドバイスしてくる。
-20代の自分が真似して変化があった、という構成。
-リンク・商品名プッシュはしない。保存されるための純粋な有益情報。
-{win_section}
-
-【厳守構成（5〜6文）】
-1文目: 姉起点のフック（皮膚科勤務の知見を絡める形が最強）
-  例：
-  - 「皮膚科で働いてる姉に聞いたら患者さんの8割がやってるNGケアがあるらしい」
-  - 「姉の職場（皮膚科）で一番多い相談がまさかの○○だった」
-  - 「姉が皮膚科で毎日見てるからこそ絶対やめろって言ってくること」
-  - 「姉が〜」「姉に〜って言われた」「姉が32歳で急に〜」等も可
-2〜5文目: 具体的な習慣/アイテムを4項目（必ず「・」始まりの箇条書き）
-最終文: 以下3要素を自然に盛り込む（硬い命令調NG）
-  - 自分(20代)の体験・気づき or 姉への愛情/ツッコミ（「姉よありがとう」「うるさいと思ってたけど本当だった」「去年サボって後悔した」）
-  - 読者への問いかけ or 共感誘導（「みんなは？」「これ知らなかった人いる？」「やってた人教えて！」「同じ人いる？」）
-  - 絵文字1〜2個（🌸😂🙌😭🌙😳 など自然に）
-硬い例NG：「保存して真似してみて」
-柔らかい例OK：「これ知らんかった〜😂 姉よありがとう。みんなも保存して春のうちから試してみて🌸」
-
-【テーマ候補（10種から3つ選んでバラけさせる）】
-G-1 スキンケア軸 / G-2 コスメ軸 / G-3 習慣軸 / G-4 ヘアケア軸 / G-5 ボディケア軸
-G-6 食事・インナーケア軸 / G-7 メイク軸 / G-8 ダイエット・体型管理軸 / G-9 睡眠・回復軸 / G-10 メンタル・ストレスケア軸
-
-【参考例（1例のみ・このトーンと構成だけ真似る。丸コピ禁止）】
-
-G-1（スキンケア軸）
-姉が30代で急にきれいになった理由を聞いたら全部スキンケアの順番だった
-・洗顔後すぐ化粧水（1分以内）
-・化粧水はハンドプレスで3回重ねる
-・乳液で蓋をしてから保湿クリーム
-・週2でビタミンCの美容液
-うるさいと思ってたけど本当だった。みんなもやってる？🌸
-
-【絶対ルール】
-- 参考例の丸コピ禁止。事実・アイテム・数字を全部差し替えろ
-- 必ず「姉」起点（姉が〜 / 姉に〜 / 姉から〜）で始める
-- 箇条書きは必ず4項目（3項目も5項目もNG）
-- 締めの1文は「自分の体験/気づき or 姉への愛情ツッコミ」+「読者への問いかけ」+「絵文字1〜2個」で柔らかく終わる
-- リンク・URL・商品名プッシュ・ハッシュタグ絶対NG
-- 「続きはリプ欄」「DMで聞いて」もNG
-- 3パターンで使うテーマは必ず3種バラす（同じG-番号を重複させない）
-
-【出力形式】
-3パターンを以下のJSON形式のみで返してください（説明不要）：
-{{
-  "posts": [
-    {{"text": "投稿本文1", "affiliate_keyword": ""}},
-    {{"text": "投稿本文2", "affiliate_keyword": ""}}
-  ]
-}}"""
-        else:
-            print("[Writer] list型サブタイプ: 既存保存リスト型")
-            prompt = f"""Threadsで保存・リポストされる「保存リスト型」投稿を3パターン生成してください。
-
-商品名：{product['product_name']}（本文中に出さなくてよい。アフィリエイトキーワードは別フィールドで返す）
-読者の悩み：{_target_pain}
-{seasonal_info}{win_section}{competitor_section}
-
-【目的】保存・リポスト最大化＋アフィ自然訴求
-
-【厳守ルール】
-- 冒頭1行目は「[テーマ]【保存用】」（例：「成分覚えられない人向け【保存用】」「春の毛穴対策【保存用】」）
-- 続いて空行
-- 悩み→解決策の対応表を5〜8項目（「悩み → 解決策」の形式・1行1項目）
-- 締めは共感・背中押し系（例：「全部じゃなくていい。気になるとこからゆっくり試してみてね🌿」「完璧にやらなくていい。今いちばん気になるやつだけ、まず試してみて♡」）
-- 109文字超えはOK（保存型なのでスレッド1/2形式可・長文歓迎）
-- リンク・URL・「続きはリプ欄」は絶対NG
-- ハッシュタグ（#）絶対NG
-
-【参考フォーマット】
-成分覚えられない人向け【保存用】
-
-毛穴 → レチノール
-ゴワつき → AHA
-毛穴詰まり → BHA
-乾燥・敏感 → セラミド
-シミ → トラネキサム酸
-皮脂・テカリ → ナイアシンアミド
-くすみ → ビタミンC
-
-全部じゃなくていい。気になるとこからゆっくり試してみてね🌿
-
-【出力形式】
-3パターンを以下のJSON形式のみで返してください（説明不要）：
-{{
-  "posts": [
-    {{"text": "投稿本文1", "affiliate_keyword": "アフィURL取得用キーワード（例: メラノCC）"}},
-    {{"text": "投稿本文2", "affiliate_keyword": "..."}}
-  ]
-}}"""
-
-    elif post_type == "buzz":
+    if post_type == "buzz":
         prompt = f"""Threadsでバズる投稿を3パターン生成してください。
 
 商品：{product['product_name']}
