@@ -62,6 +62,7 @@
 - daily_report: `0 16 * * *` UTC（= JST 1時）→ Slackに日次パフォーマンスレポート
   - フォロワー前日比 / 今日の投稿metrics / エンゲージリプ / 投稿型TOP3(7日)
   - 観察ポイント: 勝ち型把握、減衰すべき型の特定、投稿バランス調整指針
+- ~~healthcheck cron~~ **廃案** — Slack日次レポート(daily_report)が代替として機能するため毎時heartbeat不要
 
 ## 重要な設定値
 
@@ -82,21 +83,33 @@
 - daily_report cron 設定済み（JST 1時 Slack通知）
 - 姉シリーズ投稿テンプレート実装済み
 - imgur画像停止・テキストのみ運用に切替済み
+- **2026-04-22 Phase 1 完全成功**: writer.py JSON廃止・ask_plain導入・3 call逐次分割で Writer 7日間停止を解消
+  - 復活初動 5分で 630 imp（過去最高ペース）・Writer失敗0件・engage 3 call全採用（61/88/30字）
+  - 真因は Render auto-deploy 停滞（c0b6689 push が7日間反映されず）
+  - 詳細: <https://github.com/siromaje713/bot-infrastructure-spec/blob/main/INCIDENTS/2026-04-22_render_deploy_stuck.md>
+- 2026-04-22 bot-infrastructure-spec を public化（web_fetch 経由で新セッション初期読み込み可）
+- CLAUDE.md から Render API Key 平文削除（700173a）
+- **2026-04-22 深夜 RENDER_API_KEY rotation 実施**: 旧Key revoke・新Key 発行→両.envに反映
+  - 詳細: <https://github.com/siromaje713/bot-infrastructure-spec/blob/main/INCIDENTS/2026-04-22_render_key_leak.md>
 
 ### 既知の問題・バグ
 
 - エンゲージメント率が低い（view 300-500に対し、いいね 1-3）
 - 表示回数1000安定に未到達
-- セッション終了コンテキストが空のため、直近の作業詳細不明（次回セッション時にSlack daily_reportおよびThreads管理画面で現状確認が必要）
+- **Render auto-deploy 停滞リスク**: 2026-04-22事例で7日間反映遅延。push後は `python3 scripts/_render_check.py` で active deploy commit と main HEAD を照合する運用
+- **Threads permalink URL 404**: `https://www.threads.net/t/{post_id}` 形式は404実例あり（18061464617694785で確認）。正規形式 `/@{username}/post/{shortcode}` 想定だが post_id→shortcode 変換方法は未確定（orchestrator.py:570/598 の通知URL修正要）
 
 ## 次にやること
 
-1. **現状確認**（最優先）: Slack daily_reportログ確認 → 姉シリーズ生成・リプ者投稿リプ・トレンド絡め・API削減が正常稼働しているか検証
-2. プロフィール改善（bio・アイコン・ハイライト見直し）
-3. 投稿分析（伸びた/死んだパターン特定 → daily_reportデータ活用）
-4. 論争型投稿の導入（化粧水不要説等）
-5. 表示回数1000安定を目指す施策
-6. THREADS_TOKEN更新準備（期限: 2026-05-30 — 残り約38日）
+1. **現状確認**（最優先）: Slack daily_report で姉シリーズ生成・リプ者投稿リプ・API削減反映を検証
+2. Threads permalink URL 正規形式調査（orchestrator.py:570/598 修正・post_id→shortcode or API permalink field）
+3. `scripts/_render_*.py` 9ファイルを `scripts/render_ops/` へ整理（`_inject_render_key.py`, `_inject_anthropic_key.py`, `_render_check.py`, `_render_trigger_job.py`, `_render_poll_job.py`, `_render_fetch_stdout.py`, `_fetch_render_logs.py`, `_list_hoshi_keys.py`, `_repro_writer_local.py`）
+4. benchmark_raw 収集（Step E/F/G: `scripts/collect_benchmark_raw.py` 実装 + gitignore 更新 + TOP20サンプル生成）
+5. プロフィール改善（bio・アイコン・ハイライト見直し）
+6. 投稿分析（伸びた/死んだパターン特定 → daily_reportデータ活用）
+7. 論争型投稿の導入（化粧水不要説等）
+8. 表示回数1000安定を目指す施策
+9. THREADS_TOKEN更新準備（期限: 2026-05-30 — 残り約38日）
 
 ## 判断履歴
 
