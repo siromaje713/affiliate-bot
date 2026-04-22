@@ -5,3 +5,4 @@ CLAUDE.local.md
 logs/
 __pycache__/
 .pytest_cache/
+data/llm_raw_logs/

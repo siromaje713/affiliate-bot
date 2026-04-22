@@ -117,3 +117,45 @@ def ask_json(prompt: str, model: str = MODEL_SONNET) -> any:
     if not match:
         raise ValueError(f"JSONが見つからない: {raw[:200]}")
     return json.loads(match.group())
+
+
+def ask_plain(
+    prompt: str,
+    prefill: str = "",
+    max_tokens: int = 256,
+    model: str = MODEL_SONNET,
+    retries: int = MAX_RETRIES,
+) -> str:
+    """プレーンテキスト返却ask。前置き・説明を抑えたいときに使う。
+
+    - prefill を渡すと assistant メッセージとして末尾に追加され、Claude は続きから生成する。
+      前置き混入の抑制に有効（例: prefill="「"）。
+    - max_tokens は呼び出し側で指定可能（デフォルト256）。
+    - 返却は prefill + 生成文字列 の strip() 済みプレーンテキスト。
+    """
+    messages = [{"role": "user", "content": prompt}]
+    if prefill:
+        messages.append({"role": "assistant", "content": prefill})
+    last_err = None
+    for attempt in range(retries):
+        try:
+            response = _get_client().messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=messages,
+            )
+            text = response.content[0].text
+            return (prefill + text).strip()
+        except anthropic.APITimeoutError as e:
+            last_err = e
+            time.sleep(5 * (attempt + 1))
+        except anthropic.RateLimitError as e:
+            last_err = e
+            time.sleep(15 * (attempt + 1))
+        except anthropic.APIConnectionError as e:
+            last_err = e
+            time.sleep(10 * (attempt + 1))
+        except Exception as e:
+            print(f"[ClaudeCLI] ask_plain予期せぬエラー: {e}")
+            raise
+    raise RuntimeError(f"[ClaudeCLI] ask_plain {retries}回リトライ失敗: {last_err}")
