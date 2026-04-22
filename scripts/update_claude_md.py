@@ -15,6 +15,16 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 from utils.claude_cli import ask, MODEL_OPUS
 
+# 2026-04-23 disabled: Stop hook から切り離し済み。
+# 理由: LLM による CLAUDE.md 自動再生成で secret 混入リスクあり（2026-04-22 Render API Key 漏洩インシデント参照）
+# 手動実行時のみ動作。hook 再有効化は secret 禁止プロンプト追加 + INCIDENTS レビュー後
+DISABLED = True
+if DISABLED and len(sys.argv) < 2:
+    print("[UpdateCLAUDE] DISABLED. Use --force to run manually.")
+    sys.exit(0)
+
+# 手動実行: python3 scripts/update_claude_md.py --force
+
 def load_current_claude_md() -> str:
     path = PROJECT_ROOT / "CLAUDE.md"
     if path.exists():
