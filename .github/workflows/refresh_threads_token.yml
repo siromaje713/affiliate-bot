@@ -1,9 +1,11 @@
 name: Threadsトークン月次自動更新
 
 on:
-  schedule:
-    - cron: "0 2 1 * *" # 毎月1日 UTC 2:00 (JST 11:00)
-  workflow_dispatch: # 手動実行も可能
+  # 2026-05-07 緊急停止: 判断保留 → disable 側に倒す。Threads refresh API は
+  # 投稿しないがトークン rotation で API レイヤを触る形なので 24h 観察期間中は止める。
+  # 必要時は手動で workflow_dispatch から実行可能。
+  # 過去 schedule: - cron: "0 2 1 * *"  # 毎月 1 日 UTC 02:00 = JST 11:00
+  workflow_dispatch: # 手動実行のみ
 
 jobs:
   refresh-token:

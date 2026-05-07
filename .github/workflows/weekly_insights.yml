@@ -1,8 +1,8 @@
 name: Daily Insights Analysis
 
 on:
-  schedule:
-    - cron: "0 17 * * *" # 毎日UTC 17:00 = JST 02:00
+  # 2026-05-07 緊急停止: Threads /me/threads/{id}/insights 叩く workflow を disable。
+  # 過去 schedule: - cron: "0 17 * * *"  # 毎日 UTC 17:00 = JST 02:00
   workflow_dispatch:
 
 jobs:

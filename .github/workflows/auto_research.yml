@@ -1,8 +1,9 @@
 name: Auto Research - Threads Benchmark Scraping
 
 on:
-  schedule:
-    - cron: "0 23 * * *"
+  # 2026-05-07 緊急停止: hoshi-musubi の Threads ボット検知に追随し
+  # 美容 affiliate-bot 側も Threads 叩く workflow を全 disable。
+  # 過去 schedule: - cron: "0 23 * * *"
   workflow_dispatch:
 
 jobs:

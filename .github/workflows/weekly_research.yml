@@ -1,8 +1,8 @@
 name: Weekly Buzz Research
 
 on:
-  schedule:
-    - cron: "0 20 */3 * *" # 3日ごとUTC 20:00 = JST 05:00
+  # 2026-05-07 緊急停止: Threads buzz research workflow を disable。
+  # 過去 schedule: - cron: "0 20 */3 * *"  # 3 日ごと UTC 20:00 = JST 05:00
   workflow_dispatch:
 
 jobs:

@@ -1,9 +1,9 @@
 name: ベンチマークスクレイプ週次実行
 
 on:
-  schedule:
-    - cron: "0 21 * * 2" # 毎週火曜 UTC 21:00 (JST 水曜 06:00)
-  workflow_dispatch: # 手動実行も可能
+  # 2026-05-07 緊急停止: Threads ベンチマークスクレイプ disable。
+  # 過去 schedule: - cron: "0 21 * * 2"  # 毎週火曜 UTC 21:00 = JST 水曜 06:00
+  workflow_dispatch: # 手動実行のみ可能
     inputs:
       accounts:
         description: "スクレイプするアカウント（カンマ区切り、空欄でSecrets使用）"
