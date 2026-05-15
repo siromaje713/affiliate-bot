@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>美容研究所 — 猫たちの経営ダッシュボード</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Maru+Gothic:wght@500;700;900&family=Kaisei+Decol:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#3a2a1f; --paper:#fdf6e8; --cream:#f5e6c8;
+    --gold:#d4a93a; --rose:#e89aa3; --sage:#9bb88a;
+    --sky:#8ab9c9; --plum:#b08ec0; --orange:#e8a86c; --night:#2a3a4e;
+  }
+  html,body{background:#1f1812;}
+  body{
+    font-family:'Zen Maru Gothic',sans-serif;
+    color:var(--ink);
+    background:radial-gradient(ellipse at top, #2d2218 0%, #1a120c 100%);
+    min-height:100vh;
+  }
+  .display-font{font-family:'Kaisei Decol',serif;}
+  .pixel-font{font-family:'DotGothic16',monospace;}
+  .paper-bg{
+    background:var(--paper);
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(212,169,58,.08) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(232,154,163,.08) 0%, transparent 40%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  }
+  .room{
+    position:relative;border:2px solid #c9a878;border-radius:14px;overflow:hidden;
+    box-shadow:inset 0 -8px 0 rgba(0,0,0,.06),inset 0 2px 0 rgba(255,255,255,.4),0 4px 0 rgba(58,42,31,.15);
+    cursor:pointer; transition:transform .15s;
+  }
+  .room:hover{transform:translateY(-2px);}
+  .room-label{
+    position:absolute;top:8px;left:10px;background:rgba(255,255,255,.85);
+    border:1.5px solid #c9a878;border-radius:8px;padding:2px 10px;
+    font-weight:700;font-size:13px;letter-spacing:.05em;z-index:10;
+  }
+  .room-metric{
+    position:absolute;top:8px;right:10px;
+    background:rgba(58,42,31,.85);color:#f5e6c8;
+    border-radius:8px;padding:2px 8px;
+    font-weight:700;font-size:11px;z-index:10;
+    font-family:'DotGothic16',monospace;
+  }
+  .cat{font-size:42px;line-height:1;filter:drop-shadow(2px 3px 0 rgba(58,42,31,.2));transition:transform .3s;}
+  .cat:hover{transform:translateY(-4px) rotate(-3deg);}
+  .floor{position:absolute;bottom:0;left:0;right:0;height:30%;background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(58,42,31,.12) 100%);}
+  .bar-track{background:rgba(58,42,31,.12);border-radius:999px;overflow:hidden;height:8px;}
+  .bar-fill{height:100%;border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.4);transition:width .6s ease;}
+  .pixel-btn{
+    font-family:'DotGothic16',monospace;background:var(--gold);color:#3a2a1f;
+    border:2px solid #3a2a1f;border-radius:10px;padding:8px 14px;font-weight:700;
+    box-shadow:0 3px 0 #3a2a1f;transition:transform .1s, box-shadow .1s;cursor:pointer;
+  }
+  .pixel-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #3a2a1f;}
+  .kpi-chip{
+    background:rgba(255,255,255,.7);border:1.5px solid #c9a878;border-radius:10px;
+    padding:4px 10px 4px 8px;display:inline-flex;align-items:center;gap:6px;
+    font-weight:700;font-size:13px;
+  }
+  .badge-dot{
+    position:absolute;top:-6px;right:-6px;background:#e85a5a;color:white;
+    font-size:11px;font-weight:700;width:20px;height:20px;border-radius:999px;
+    display:flex;align-items:center;justify-content:center;border:2px solid var(--paper);
+  }
+  .nav-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+    padding:6px 4px;border-radius:10px;position:relative;cursor:pointer;transition:background .2s;
+  }
+  .nav-item:hover{background:rgba(212,169,58,.15);}
+  .speech{
+    position:absolute;background:white;border:1.5px solid #3a2a1f;border-radius:10px;
+    padding:3px 8px;font-size:10px;font-weight:700;
+    box-shadow:1px 2px 0 rgba(58,42,31,.2);white-space:nowrap;
+  }
+  .speech::after{
+    content:'';position:absolute;bottom:-6px;left:14px;width:8px;height:8px;
+    background:white;border-right:1.5px solid #3a2a1f;border-bottom:1.5px solid #3a2a1f;transform:rotate(45deg);
+  }
+  .star{position:absolute;color:var(--gold);font-size:10px;animation:twinkle 2s infinite;}
+  @keyframes twinkle{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+  .level-up-glow{animation:glow 1.5s infinite;}
+  @keyframes glow{
+    0%,100%{box-shadow:0 3px 0 #3a2a1f, 0 0 8px rgba(212,169,58,.4);}
+    50%{box-shadow:0 3px 0 #3a2a1f, 0 0 20px rgba(212,169,58,.8);}
+  }
+  .frame-shadow{box-shadow:0 0 0 4px #d4a93a,0 0 0 6px #3a2a1f,0 10px 0 rgba(0,0,0,.3),0 20px 40px rgba(0,0,0,.4);}
+  .room-rose{background:linear-gradient(180deg,#fae0e3 0%,#f5cdd2 100%);}
+  .room-sage{background:linear-gradient(180deg,#e2ecd6 0%,#cee0bd 100%);}
+  .room-sky{background:linear-gradient(180deg,#d8e9f0 0%,#bcdae6 100%);}
+  .room-cream{background:linear-gradient(180deg,#f5e6c8 0%,#ead2a4 100%);}
+  .room-plum{background:linear-gradient(180deg,#e4d3ec 0%,#d2bbdf 100%);}
+  .room-orange{background:linear-gradient(180deg,#f7d9bd 0%,#eec095 100%);}
+  .room-night{background:linear-gradient(180deg,#3a4a5f 0%,#2a3a4e 100%);color:#f5e6c8;}
+  .room-night .room-label{background:rgba(245,230,200,.9);color:#2a3a4e;border-color:#2a3a4e;}
+  .ticker{overflow:hidden;white-space:nowrap;}
+  .ceo-room{
+    border:3px solid #d4a93a !important;
+    box-shadow:inset 0 0 30px rgba(212,169,58,.25),inset 0 -8px 0 rgba(0,0,0,.15),
+      inset 0 2px 0 rgba(255,217,102,.3),0 0 0 1px #3a1a05,0 4px 0 #3a1a05,0 0 20px rgba(212,169,58,.5);
+    animation:ceoGlow 3s ease-in-out infinite;
+  }
+  @keyframes ceoGlow{
+    0%,100%{box-shadow:inset 0 0 30px rgba(212,169,58,.25),inset 0 -8px 0 rgba(0,0,0,.15),inset 0 2px 0 rgba(255,217,102,.3),0 0 0 1px #3a1a05,0 4px 0 #3a1a05,0 0 20px rgba(212,169,58,.5);}
+    50%{box-shadow:inset 0 0 40px rgba(255,217,102,.4),inset 0 -8px 0 rgba(0,0,0,.15),inset 0 2px 0 rgba(255,217,102,.5),0 0 0 1px #3a1a05,0 4px 0 #3a1a05,0 0 35px rgba(255,217,102,.8);}
+  }
+  .ticker-track{display:inline-block;animation:scroll 28s linear infinite;padding-left:100%;}
+  @keyframes scroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
+
+  /* Modal */
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:1rem;
+    opacity:0;pointer-events:none;transition:opacity .2s;
+  }
+  .modal-bg.open{opacity:1;pointer-events:auto;}
+  .modal-card{
+    background:var(--paper);border-radius:20px;
+    max-width:520px;width:100%;max-height:85vh;overflow-y:auto;
+    border:3px solid var(--gold);
+    box-shadow:0 0 0 1px #3a1a05, 0 20px 50px rgba(0,0,0,.5);
+    transform:translateY(20px);transition:transform .2s;
+  }
+  .modal-bg.open .modal-card{transform:translateY(0);}
+
+  /* Task item */
+  .task-item{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 10px;border-radius:10px;
+    background:rgba(255,255,255,.5);border:1.5px solid #c9a878;
+    margin-bottom:6px;cursor:pointer;
+  }
+  .task-item.done{opacity:.5;text-decoration:line-through;}
+  .task-check{
+    width:20px;height:20px;border:2px solid #3a2a1f;border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    background:white;flex-shrink:0;
+  }
+  .task-item.done .task-check{background:var(--gold);}
+
+  /* Alert */
+  .alert{
+    background:linear-gradient(180deg,#fff4d6,#ffd966);
+    border:2px solid #d4a93a;border-radius:10px;
+    padding:6px 12px;font-size:12px;font-weight:700;
+    display:flex;align-items:center;gap:6px;
+    margin-bottom:4px;
+  }
+  .alert.error{background:linear-gradient(180deg,#ffd6d6,#ff9999);border-color:#cc3a3a;}
+
+  /* Countdown */
+  .countdown{
+    font-family:'DotGothic16',monospace;
+    background:rgba(58,42,31,.85);color:#ffd966;
+    padding:4px 10px;border-radius:8px;font-weight:700;
+  }
+
+  /* History chart */
+  .spark{
+    display:flex;align-items:flex-end;gap:2px;height:30px;
+  }
+  .spark-bar{
+    flex:1;background:linear-gradient(180deg,#d4a93a,#6b3410);
+    border-radius:2px 2px 0 0;min-height:2px;
+  }
+
+  /* Loader */
+  .loader{
+    display:inline-block;width:14px;height:14px;
+    border:2px solid rgba(58,42,31,.2);border-top-color:#3a2a1f;
+    border-radius:50%;animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body class="py-6">
+
+<div class="max-w-5xl mx-auto px-4">
+
+  <!-- title strip -->
+  <div class="text-center mb-4">
+    <div class="inline-block paper-bg rounded-full px-5 py-1.5 border-2 border-amber-700/50">
+      <span class="pixel-font text-xs tracking-widest" style="color:var(--gold)">★ RIKO COSME Inc. — 猫たちの放置経営 ★</span>
+    </div>
+    <div id="updated-at" class="text-[10px] mt-1" style="color:#d4a93a;">読込中...</div>
+  </div>
+
+  <!-- main frame -->
+  <div class="paper-bg rounded-3xl p-4 frame-shadow">
+
+    <!-- header KPI -->
+    <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <div class="text-2xl">🐈‍⬛</div>
+        <div>
+          <div class="display-font text-xl font-black leading-tight">星結び <span class="text-xs font-normal">合同会社</span></div>
+          <div class="text-[10px] opacity-60 leading-tight">美容を、結ぶ。猫たちが今日も研究中。</div>
+        </div>
+      </div>
+      <div id="kpi-row" class="flex items-center gap-1.5 flex-wrap">
+        <!-- JSで埋める -->
+        <div class="loader"></div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div id="alerts" class="mb-3 hidden"></div>
+
+    <!-- Next post countdown -->
+    <div id="next-post" class="mb-3 text-center text-xs" style="color:#3a2a1f;"></div>
+
+    <!-- body grid: sidebar + rooms -->
+    <div class="grid grid-cols-[160px_1fr] gap-3">
+
+      <!-- LEFT: department levels -->
+      <aside id="sidebar" class="space-y-1.5">
+        <!-- JS埋め -->
+      </aside>
+
+      <!-- RIGHT: rooms 3x3 -->
+      <main id="rooms" class="grid grid-cols-3 gap-2">
+        <!-- JS埋め -->
+      </main>
+    </div>
+
+    <!-- bottom nav -->
+    <div class="mt-3 p-2 rounded-2xl border-2 border-amber-700/30 flex gap-1" style="background:linear-gradient(180deg,#f5e6c8,#ead2a4);">
+      <div class="nav-item" onclick="openModal('shop')"><div class="text-2xl">🛒</div><div class="text-[10px] font-bold">ショップ</div></div>
+      <div class="nav-item" onclick="openModal('staff')">
+        <div class="text-2xl relative">🐈</div>
+        <div class="text-[10px] font-bold">人材</div>
+      </div>
+      <div class="nav-item" onclick="openModal('equipment')">
+        <div class="text-2xl relative">🪑</div>
+        <div class="text-[10px] font-bold">設備</div>
+      </div>
+      <div class="nav-item" onclick="openModal('research')"><div class="text-2xl">🧪</div><div class="text-[10px] font-bold">研究</div></div>
+      <div class="nav-item" onclick="openModal('book')"><div class="text-2xl">📕</div><div class="text-[10px] font-bold">図鑑</div></div>
+      <div class="nav-item" onclick="openModal('missions')">
+        <div class="text-2xl relative">✨<span id="mission-badge" class="badge-dot hidden" style="top:-4px;right:-10px;">0</span></div>
+        <div class="text-[10px] font-bold">ミッション</div>
+      </div>
+      <div class="nav-item" onclick="openModal('tasks')">
+        <div class="text-2xl relative">📝<span id="task-badge" class="badge-dot hidden" style="top:-4px;right:-10px;">0</span></div>
+        <div class="text-[10px] font-bold">タスク</div>
+      </div>
+      <button class="pixel-btn flex flex-col items-center gap-0 !py-2 !px-3 level-up-glow" onclick="openModal('chart')">
+        <span class="text-[10px]">📈 業績グラフ</span>
+      </button>
+    </div>
+
+    <!-- ticker -->
+    <div class="mt-3 ticker paper-bg rounded-full border-2 border-amber-700/30 py-1.5 text-xs">
+      <span id="ticker-track" class="ticker-track">読込中...</span>
+    </div>
+
+  </div>
+
+  <div class="text-center mt-4 text-[10px] opacity-50" style="color:#e8d5b0;">
+    ※ 15分おきに自動更新 / <a href="#" onclick="loadData();return false;" style="text-decoration:underline;">手動更新</a>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div id="modal" class="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal-card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div id="modal-title" class="display-font text-xl font-black"></div>
+      <button class="pixel-btn !py-1 !px-3 !text-xs" onclick="closeModal()">✕ 閉じる</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────
+// State
+// ──────────────────────────────────────────────────────────
+window.STATE = { data: null, tasks: [], missions: [] };
+const STATE = window.STATE;
+
+const DEPT_META = {
+  sales:     { icon:'🤝', label:'営業部',   class:'room-sage',   speech:'リプ返してくる〜' },
+  strategy:  { icon:'🎯', label:'戦略部',   class:'room-orange', speech:'バズ分析中' },
+  analytics: { icon:'📊', label:'分析部',   class:'room-sky',    speech:'CTR分析中' },
+  dev:       { icon:'⚙️', label:'開発部',   class:'room-cream',  speech:'commit ✅' },
+  hr:        { icon:'💝', label:'人事部',   class:'room-plum',   speech:'友だち募集中' },
+  general:   { icon:'🧰', label:'総務部',   class:'room-cream',  speech:'cron稼働中' },
+  pr:        { icon:'📣', label:'広報部',   class:'room-rose',   speech:'配信スタート!' },
+};
+
+const SIDEBAR_ORDER = ['sales','strategy','analytics','dev','hr','general','pr'];
+
+// ──────────────────────────────────────────────────────────
+// Data load
+// ──────────────────────────────────────────────────────────
+async function loadData(){
+  try {
+    const [dRes, tRes, mRes] = await Promise.all([
+      fetch('./data.json?t='+Date.now()),
+      fetch('./tasks.json?t='+Date.now()),
+      fetch('./missions.json?t='+Date.now()),
+    ]);
+    STATE.data = await dRes.json();
+    STATE.tasks = await tRes.json();
+    // missions は data.json 内の評価済みを優先 (fallbackで生定義)
+    STATE.missions = STATE.data.missions && STATE.data.missions.length
+      ? STATE.data.missions
+      : await mRes.json();
+    render();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('updated-at').textContent = '⚠ data.json読込失敗 (まだ生成されてないかも)';
+    // フォールバック: ダミーデータで描画
+    STATE.data = DUMMY_DATA;
+    STATE.tasks = [];
+    STATE.missions = [];
+    render();
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// Render
+// ──────────────────────────────────────────────────────────
+function render(){
+  const d = STATE.data;
+  if(!d) return;
+
+  // updated_at
+  const upd = d.updated_at ? new Date(d.updated_at) : null;
+  document.getElementById('updated-at').textContent = upd
+    ? `最終更新: ${upd.toLocaleString('ja-JP')}`
+    : 'データ未取得';
+
+  renderKPI(d.kpi);
+  renderAlerts(d.alerts || []);
+  renderNextPost(d.next_post);
+  renderSidebar(d.departments, d.kpi);
+  renderRooms(d.departments);
+  renderTicker(d.timeline || []);
+  renderBadges();
+}
+
+function renderKPI(k){
+  if(!k) return;
+  const xpPct = Math.round(k.xp / k.xp_next * 100);
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi-chip"><span>🏆</span><span>Lv.</span><b>${k.level}</b></div>
+    <div class="kpi-chip">
+      <span class="text-sky-700">XP</span>
+      <div class="bar-track w-16"><div class="bar-fill" style="width:${xpPct}%;background:linear-gradient(90deg,#5fa8c4,#8ab9c9)"></div></div>
+      <span class="text-[10px]">${k.xp.toLocaleString()}</span>
+    </div>
+    <div class="kpi-chip"><span>💖</span>
+      <div class="bar-track w-14"><div class="bar-fill" style="width:${k.happiness}%;background:linear-gradient(90deg,#e89aa3,#f5b8c0)"></div></div>
+      <span class="text-[10px]">${k.happiness}</span>
+    </div>
+    <div class="kpi-chip"><span>📝</span><b>${k.tasks_done}</b><span class="text-[10px] opacity-60">/${k.tasks_total}</span></div>
+    <div class="kpi-chip"><span>🧵</span><b>${(k.posts_total||0).toLocaleString()}</b></div>
+    <div class="kpi-chip"><span>👥</span><b>${(k.followers||0).toLocaleString()}</b></div>
+  `;
+}
+
+function renderAlerts(alerts){
+  const el = document.getElementById('alerts');
+  if(!alerts.length){ el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = alerts.map(a => `
+    <div class="alert ${a.level==='error'?'error':''}">
+      <span>${a.level==='error'?'🚨':'⚠️'}</span>
+      <span>${a.msg}</span>
+    </div>
+  `).join('');
+}
+
+function renderNextPost(np){
+  const el = document.getElementById('next-post');
+  if(!np || !np.scheduled_at){ el.textContent = ''; return; }
+  const target = new Date(np.scheduled_at);
+  const update = () => {
+    const diff = target - new Date();
+    if(diff < 0){ el.textContent = '次の投稿時刻を過ぎています'; return; }
+    const h = Math.floor(diff/3600000);
+    const m = Math.floor((diff%3600000)/60000);
+    const s = Math.floor((diff%60000)/1000);
+    el.innerHTML = `次の投稿(${np.type})まで <span class="countdown">${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}</span>`;
+  };
+  update();
+  if(window._countdownTimer) clearInterval(window._countdownTimer);
+  window._countdownTimer = setInterval(update, 1000);
+}
+
+function renderSidebar(depts, kpi){
+  const colors = {
+    sales:    'linear-gradient(90deg,#9bb88a,#b8d4a5)',
+    strategy: 'linear-gradient(90deg,#e8a86c,#f0c08a)',
+    analytics:'linear-gradient(90deg,#5fa8c4,#8ab9c9)',
+    dev:      'linear-gradient(90deg,#7a8fa3,#9bb0c4)',
+    hr:       'linear-gradient(90deg,#b08ec0,#c9a8d6)',
+    general:  'linear-gradient(90deg,#9b8b75,#b8a890)',
+    pr:       'linear-gradient(90deg,#e89aa3,#f5b8c0)',
+  };
+  let html = '';
+  for(const key of SIDEBAR_ORDER){
+    const d = depts[key]; if(!d) continue;
+    const meta = DEPT_META[key];
+    html += `
+      <div class="paper-bg rounded-xl p-2 border-2 border-amber-700/30">
+        <div class="flex items-center gap-1 text-[11px] font-bold">
+          <span>${meta.icon}</span>${meta.label.slice(0,-1)}<span class="ml-auto text-amber-700">Lv.${d.level}</span>
+        </div>
+        <div class="bar-track mt-1"><div class="bar-fill" style="width:${d.progress}%;background:${colors[key]}"></div></div>
+        <div class="text-[10px] text-right opacity-60">${d.progress}%</div>
+      </div>
+    `;
+  }
+  // profit
+  html += `
+    <div class="rounded-xl p-2 border-2 mt-2" style="background:linear-gradient(180deg,#fff4d6 0%,#f5d97a 100%); border-color:#d4a93a;">
+      <div class="text-[10px] font-bold opacity-70">会社の利益(毎秒)</div>
+      <div class="flex items-baseline gap-1">
+        <span class="text-base">💰</span>
+        <span class="display-font text-lg font-black">${(kpi.profit_cumulative||0).toLocaleString()}</span>
+      </div>
+      <div class="text-[10px] font-bold text-emerald-700">+${kpi.profit_per_sec||0} / 秒</div>
+    </div>
+    <button class="pixel-btn w-full !text-xs level-up-glow">💰 受け取る</button>
+  `;
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+function renderRooms(depts){
+  // 3x3 のレイアウト固定: 営業/戦略/分析 / 開発/社長/人事 / 総務/広報/図鑑
+  const layout = [
+    ['sales', 'strategy', 'analytics'],
+    ['dev',   'ceo',      'hr'],
+    ['general','pr',      'archive'],
+  ];
+  let html = '';
+  for(const row of layout){
+    for(const key of row){
+      if(key === 'ceo'){
+        html += renderCEORoom();
+      } else if(key === 'archive'){
+        html += renderArchiveRoom();
+      } else {
+        html += renderDeptRoom(key, depts[key]);
+      }
+    }
+  }
+  document.getElementById('rooms').innerHTML = html;
+}
+
+function renderDeptRoom(key, d){
+  if(!d) d = {value:0, metric:''};
+  const m = DEPT_META[key];
+  const cats = {
+    sales: ['🐈'], strategy: ['🐈','🐱'], analytics: ['🐈‍⬛'],
+    dev: ['🐈‍⬛'], hr: ['🐈','🐈‍⬛'], general: ['🐈'], pr: ['🐈‍⬛'],
+  }[key] || ['🐈'];
+  const metricLabel = {
+    engage_count_7d: 'engage', buzz_candidates: 'bzz', avg_ctr: 'CTR',
+    commits_7d: 'cm', line_friends: '友', cron_success_rate: '稼働', posts_24h: '投稿',
+  }[d.metric] || '';
+  const metricVal = d.metric === 'avg_ctr' ? (d.value+'%')
+                  : d.metric === 'cron_success_rate' ? (d.value+'%')
+                  : (d.value||0);
+  return `
+    <div class="room ${m.class} h-32" onclick="openDeptDetail('${key}')">
+      <span class="room-label">${m.icon} ${m.label}</span>
+      <span class="room-metric">${metricLabel} ${metricVal}</span>
+      <div class="floor"></div>
+      ${cats.map((c,i) => `<div class="cat absolute" style="bottom:${10+i*4}px;left:${20+i*30}%;font-size:${36-i*4}px;">${c}</div>`).join('')}
+      <div class="speech" style="top:30%;left:8%;">${m.speech}</div>
+    </div>
+  `;
+}
+
+function renderCEORoom(){
+  return `
+    <div class="room h-32 ceo-room" style="background:radial-gradient(ellipse at 50% 20%, #6b4423 0%, transparent 60%),linear-gradient(180deg,#3d2817 0%,#1f1208 100%);color:#f5e6c8;" onclick="openModal('ceo')">
+      <span class="room-label" style="background:linear-gradient(180deg,#fff4d6,#d4a93a);color:#3a2a1f;border-color:#3a2a1f;">👑 社長室</span>
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 text-lg" style="filter:drop-shadow(0 0 8px rgba(212,169,58,.8));">💡</div>
+      <span class="star" style="top:25%;left:8%;color:#ffd966;">✦</span>
+      <span class="star" style="top:45%;left:92%;animation-delay:.5s;color:#ffd966;">✧</span>
+      <span class="star" style="top:65%;left:10%;animation-delay:1s;color:#ffd966;">✦</span>
+      <div class="absolute bottom-3 left-2 flex flex-col items-center gap-0.5">
+        <div class="text-base">💰</div>
+        <div class="w-6 h-4 rounded-sm" style="background:linear-gradient(180deg,#4a4a4a,#2a2a2a);border:1px solid #d4a93a;display:flex;align-items:center;justify-content:center;"><span class="text-[6px] pixel-font" style="color:#d4a93a;">$$$</span></div>
+      </div>
+      <div class="absolute bottom-3 right-2 flex items-end gap-0.5"><div class="text-sm">🥃</div><div class="text-xs">🚬</div></div>
+      <div class="absolute bottom-3 left-1/2 -translate-x-1/2 w-20 h-4 rounded-sm" style="background:linear-gradient(180deg,#6b3410,#3a1a05);border:1.5px solid #d4a93a;"></div>
+      <div class="absolute bottom-6 left-[28%] text-[10px]">📜</div>
+      <div class="absolute bottom-6 right-[28%] text-[10px]">💎</div>
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2" style="z-index:5;">
+        <div class="relative">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 text-xl" style="filter:drop-shadow(0 0 6px rgba(255,217,102,.9));z-index:6;">👑</div>
+          <div class="cat" style="font-size:44px;filter:drop-shadow(2px 3px 0 rgba(0,0,0,.4)) drop-shadow(0 0 12px rgba(212,169,58,.4));">🐈‍⬛</div>
+          <div class="absolute" style="bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;z-index:6;">🎀</div>
+          <div class="absolute" style="top:8px;left:62%;font-size:11px;z-index:6;">🧿</div>
+        </div>
+      </div>
+      <div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] pixel-font font-bold px-1.5 rounded-sm" style="background:linear-gradient(90deg,#d4a93a,#ffd966);color:#3a1a05;">★ CEO ★</div>
+      <div class="speech" style="top:18%;right:6%;color:#3a2a1f;background:linear-gradient(180deg,#fff4d6,#ffd966);border-color:#6b3410;">💄 今日も売れるニャ</div>
+      <div class="absolute bottom-2 right-8 text-lg">🐈</div>
+    </div>
+  `;
+}
+
+function renderArchiveRoom(){
+  return `
+    <div class="room room-night h-32" onclick="openModal('book')">
+      <span class="room-label">📚 図鑑</span>
+      <span class="star" style="top:15%;left:20%;">✦</span>
+      <span class="star" style="top:30%;left:75%;animation-delay:.7s;">✧</span>
+      <span class="star" style="top:55%;left:40%;animation-delay:1.3s;">✦</span>
+      <div class="absolute top-6 right-3 flex flex-col gap-0.5">
+        <div class="w-12 h-1.5 bg-amber-700"></div>
+        <div class="w-12 h-1.5 bg-rose-400"></div>
+        <div class="w-12 h-1.5 bg-emerald-500"></div>
+        <div class="w-12 h-1.5 bg-sky-400"></div>
+      </div>
+      <div class="cat absolute bottom-3 left-8">🐈</div>
+      <div class="absolute bottom-3 left-20 text-xl">📖</div>
+      <div class="speech" style="top:12%;left:6%;color:#3a2a1f;">過去の鉄板コスメ</div>
+    </div>
+  `;
+}
+
+function renderTicker(timeline){
+  const items = timeline.length
+    ? timeline.map(t => `<span class="mx-4">${t.icon} ${t.at} ${t.text}</span>·`)
+    : ['<span class="mx-4">タイムライン読込中...</span>'];
+  document.getElementById('ticker-track').innerHTML = items.join('');
+}
+
+function renderBadges(){
+  const incompleteTasks = STATE.tasks.filter(t => !t.done).length;
+  const incompleteMissions = STATE.missions.filter(m => !m.completed).length;
+  const taskBadge = document.getElementById('task-badge');
+  const missionBadge = document.getElementById('mission-badge');
+  if(incompleteTasks){ taskBadge.textContent = incompleteTasks; taskBadge.classList.remove('hidden'); }
+  else taskBadge.classList.add('hidden');
+  if(incompleteMissions){ missionBadge.textContent = incompleteMissions; missionBadge.classList.remove('hidden'); }
+  else missionBadge.classList.add('hidden');
+}
+
+// ──────────────────────────────────────────────────────────
+// Modal
+// ──────────────────────────────────────────────────────────
+function openModal(kind){
+  const el = document.getElementById('modal');
+  const titleEl = document.getElementById('modal-title');
+  const bodyEl = document.getElementById('modal-body');
+  const d = STATE.data || DUMMY_DATA;
+
+  if(kind === 'tasks'){
+    titleEl.textContent = '📝 タスク (手動TODO)';
+    bodyEl.innerHTML = `
+      <div class="text-[11px] opacity-70 mb-2">※ チェック状態はこの画面のみ。永続化するには tasks.json を編集してください。</div>
+      ${STATE.tasks.map(t => `
+        <div class="task-item ${t.done?'done':''}" onclick="toggleTask('${t.id}')">
+          <div class="task-check">${t.done?'✓':''}</div>
+          <div class="flex-1">
+            <div class="text-xs font-bold">${t.title}</div>
+            <div class="text-[10px] opacity-60">${DEPT_META[t.dept]?.icon||''} ${DEPT_META[t.dept]?.label||t.dept} / 優先度: ${t.priority}</div>
+          </div>
+        </div>
+      `).join('') || '<div class="text-xs opacity-60">タスクなし</div>'}
+    `;
+  }
+  else if(kind === 'missions'){
+    titleEl.textContent = '✨ ミッション (自動判定)';
+    bodyEl.innerHTML = STATE.missions.map(m => {
+      const cur = m.current ?? 0;
+      const pct = m.progress ?? Math.min(100, Math.round(cur/m.target*100));
+      return `
+        <div class="paper-bg rounded-xl p-3 mb-2 border-2 ${m.completed?'border-amber-500':'border-amber-700/30'}" ${m.completed?'style="background:linear-gradient(180deg,#fff4d6,#ffd966);"':''}>
+          <div class="flex items-center gap-2 text-xs font-bold mb-1">
+            <span class="text-lg">${m.icon||'✨'}</span>
+            <span>${m.title}</span>
+            <span class="ml-auto text-amber-700">+${m.reward_xp}XP</span>
+            ${m.completed?'<span class="text-emerald-700">✓達成</span>':''}
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,#d4a93a,#ffd966);"></div></div>
+          <div class="text-[10px] text-right opacity-70 mt-1">${cur.toLocaleString()} / ${m.target.toLocaleString()} (${pct}%)</div>
+        </div>
+      `;
+    }).join('') || '<div class="text-xs opacity-60">ミッションなし</div>';
+  }
+  else if(kind === 'chart'){
+    titleEl.textContent = '📈 業績グラフ (直近7日)';
+    const h = d.history_7d || {posts:[],engage:[],followers:[]};
+    bodyEl.innerHTML = `
+      ${chartBlock('投稿数', h.posts)}
+      ${chartBlock('engage', h.engage)}
+      ${chartBlock('フォロワー', h.followers)}
+    `;
+  }
+  else if(kind === 'book'){
+    titleEl.textContent = '📚 図鑑 (直近workflow)';
+    const wfs = d.infra?.recent_workflows || [];
+    bodyEl.innerHTML = wfs.length ? wfs.map(w => `
+      <div class="task-item">
+        <div>${w.status==='success'?'✅':w.status==='failure'?'❌':'⏳'}</div>
+        <div class="flex-1">
+          <div class="text-xs font-bold">${w.name}</div>
+          <div class="text-[10px] opacity-60">${w.at}</div>
+        </div>
+        ${w.url?`<a href="${w.url}" target="_blank" class="text-[10px] underline">開く</a>`:''}
+      </div>
+    `).join('') : '<div class="text-xs opacity-60">workflow履歴なし</div>';
+  }
+  else if(kind === 'ceo'){
+    titleEl.textContent = '👑 社長室';
+    const k = d.kpi || {};
+    const infra = d.infra || {};
+    bodyEl.innerHTML = `
+      <div class="text-xs space-y-2">
+        <div>レベル: <b>${k.level}</b> (XP ${k.xp}/${k.xp_next})</div>
+        <div>累積投稿: <b>${(k.posts_total||0).toLocaleString()}</b></div>
+        <div>フォロワー: <b>${(k.followers||0).toLocaleString()}</b></div>
+        <div>幸福度(cron健康度): <b>${k.happiness}%</b></div>
+        <hr class="my-3 border-amber-700/30" />
+        <div class="font-bold mb-1">💼 インフラ状態</div>
+        <div>Anthropic残高: <b>${infra.anthropic_balance_usd!=null?'$'+infra.anthropic_balance_usd.toFixed(2):'未取得'}</b></div>
+        <div>Render: <b>${infra.render_status||'未取得'}</b></div>
+      </div>
+    `;
+  }
+  else {
+    titleEl.textContent = kind;
+    bodyEl.innerHTML = '<div class="text-xs opacity-60">未実装エリア</div>';
+  }
+  el.classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+
+function openDeptDetail(key){
+  const d = STATE.data?.departments?.[key];
+  const meta = DEPT_META[key];
+  if(!d) return;
+  const titleEl = document.getElementById('modal-title');
+  const bodyEl = document.getElementById('modal-body');
+  titleEl.textContent = `${meta.icon} ${meta.label}`;
+  // 関連タスクを抜く
+  const relatedTasks = STATE.tasks.filter(t => t.dept === key);
+  bodyEl.innerHTML = `
+    <div class="text-xs space-y-2 mb-3">
+      <div>レベル: <b>Lv.${d.level}</b> (${d.progress}%)</div>
+      <div>指標: <b>${d.metric}</b> = <b>${d.value}</b></div>
+    </div>
+    <div class="font-bold text-xs mb-2">📝 この部署のタスク</div>
+    ${relatedTasks.length ? relatedTasks.map(t => `
+      <div class="task-item ${t.done?'done':''}" onclick="toggleTask('${t.id}')">
+        <div class="task-check">${t.done?'✓':''}</div>
+        <div class="text-xs">${t.title}</div>
+      </div>
+    `).join('') : '<div class="text-xs opacity-60">タスクなし</div>'}
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function chartBlock(label, arr){
+  if(!arr || !arr.length) return `<div class="text-xs opacity-60">${label}: データなし</div>`;
+  const max = Math.max(...arr);
+  return `
+    <div class="mb-3">
+      <div class="text-xs font-bold mb-1">${label} <span class="opacity-60 ml-2">最新: ${arr[arr.length-1]}</span></div>
+      <div class="spark">
+        ${arr.map(v => `<div class="spark-bar" style="height:${max?Math.max(2,v/max*30):2}px;" title="${v}"></div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function toggleTask(id){
+  const t = STATE.tasks.find(x => x.id === id);
+  if(t){ t.done = !t.done; openModal('tasks'); renderBadges(); }
+}
+
+// ──────────────────────────────────────────────────────────
+// Fallback dummy
+// ──────────────────────────────────────────────────────────
+const DUMMY_DATA = {
+  updated_at: new Date().toISOString(),
+  kpi: { level:10, xp:4250, xp_next:7500, happiness:82, tasks_done:0, tasks_total:6, posts_total:3215, followers:12845, profit_per_sec:248, profit_cumulative:12480 },
+  departments: {
+    sales:{level:9,progress:72,metric:'engage_count_7d',value:142},
+    strategy:{level:7,progress:58,metric:'buzz_candidates',value:8},
+    analytics:{level:8,progress:60,metric:'avg_ctr',value:4.2},
+    dev:{level:8,progress:65,metric:'commits_7d',value:23},
+    hr:{level:7,progress:55,metric:'line_friends',value:0},
+    general:{level:7,progress:63,metric:'cron_success_rate',value:99.8},
+    pr:{level:6,progress:50,metric:'posts_24h',value:4},
+  },
+  alerts: [],
+  next_post: { scheduled_at: new Date(Date.now()+2*3600*1000).toISOString(), type:'noon' },
+  infra: { anthropic_balance_usd: null, render_status: null, recent_workflows: [] },
+  timeline: [{at:'20:00',icon:'🌙',text:'夜の運勢を投稿しました'},{at:'19:30',icon:'💬',text:'reply_poster が7件返信'}],
+  history_7d: {posts:[3,4,4,3,4,4,4], engage:[18,22,19,25,28,21,24], followers:[12750,12780,12795,12810,12820,12835,12845]},
+};
+
+// ──────────────────────────────────────────────────────────
+// Boot
+// ──────────────────────────────────────────────────────────
+window.render = render;
+window.openModal = openModal;
+window.loadData = loadData;
+loadData();
+// 5分おきに自動再読込
+setInterval(loadData, 5*60*1000);
+</script>
+
+<script src="./star-effects.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Render Static Site 設定 (ダッシュボード用)
+# 既存の cron 設定とは別ファイルで管理推奨。
+# このファイルを使う場合、Renderダッシュボードで Blueprint として読み込ませる。
+
+services:
+  # ──────────────────────────────────────────────────────────
+  # Dashboard (静的サイト)
+  # ──────────────────────────────────────────────────────────
+  - type: web
+    name: hoshi-musubi-dashboard
+    runtime: static
+    branch: main
+    rootDir: dashboard
+    buildCommand: echo "static site, no build needed"
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=60
+      - path: /data.json
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+    routes:
+      - type: rewrite
+        source: /
+        destination: /index.html

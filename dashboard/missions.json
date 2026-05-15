@@ -1,0 +1,57 @@
+[
+  {
+    "id": "follow_13k",
+    "title": "フォロワー 13,000人達成",
+    "dept": "pr",
+    "target": 13000,
+    "current_key": "kpi.followers",
+    "reward_xp": 500,
+    "icon": "👥"
+  },
+  {
+    "id": "follow_15k",
+    "title": "フォロワー 15,000人達成",
+    "dept": "pr",
+    "target": 15000,
+    "current_key": "kpi.followers",
+    "reward_xp": 1000,
+    "icon": "🌟"
+  },
+  {
+    "id": "posts_4_today",
+    "title": "本日 4投稿 完走",
+    "dept": "pr",
+    "target": 4,
+    "current_key": "departments.pr.value",
+    "reward_xp": 100,
+    "icon": "📣",
+    "daily": true
+  },
+  {
+    "id": "engage_100",
+    "title": "週間engage 100件",
+    "dept": "sales",
+    "target": 100,
+    "current_key": "departments.sales.value",
+    "reward_xp": 300,
+    "icon": "🤝"
+  },
+  {
+    "id": "commits_20",
+    "title": "週間commit 20件",
+    "dept": "dev",
+    "target": 20,
+    "current_key": "departments.dev.value",
+    "reward_xp": 200,
+    "icon": "⚙️"
+  },
+  {
+    "id": "cron_perfect",
+    "title": "cron成功率 100%",
+    "dept": "general",
+    "target": 100,
+    "current_key": "departments.general.value",
+    "reward_xp": 250,
+    "icon": "🧰"
+  }
+]
