@@ -6,7 +6,7 @@ name: dashboard_aggregate
 on:
   schedule:
     # 15分おき (UTCで指定。0分,15分,30分,45分)
-    - cron: '*/15 * * * *'
+    - cron: '*/15 * * * *'  # JST も 15 分おき (時差影響なし)
   workflow_dispatch:  # 手動キック用
 
 permissions:

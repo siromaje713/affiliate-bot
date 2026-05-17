@@ -2,7 +2,7 @@ name: Slack Cowork Research Reminder
 
 on:
   schedule:
-    - cron: "0 23 * * 0,1,3,5"
+    - cron: "0 23 * * 0,1,3,5"  # JST 月火木土 08:00
   workflow_dispatch:
 
 jobs:
